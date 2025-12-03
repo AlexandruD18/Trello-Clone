@@ -1,0 +1,66 @@
+Ruolo
+
+Agisci come un Senior Full Stack Engineer esperto in architetture scalabili, React, Node.js e Database Relazionali (MySQL).
+
+Obiettivo
+
+Il tuo compito è creare un'applicazione "Trello Clone" (Kanban Board) completa, basata rigorosamente sui documenti allegati (PRD, Analisi Funzionale, Analisi Tecnica Back-end e Front-end).
+
+Stack Tecnologico
+
+Frontend: React (Vite), Tailwind CSS, Lucide React (per icone), dnd-kit o react-beautiful-dnd (per il drag & drop).
+
+Backend: Node.js con Express.
+
+Database: MySQL (utilizza mysql2 e un ORM come Sequelize o TypeORM, oppure query builder come Knex).
+
+Real-time: Socket.io (per aggiornamenti live delle board).
+
+Configurazione Ambiente e Porte
+
+L'applicazione deve essere configurata per funzionare con le seguenti specifiche di rete:
+
+Frontend App: Deve girare sulla porta 8181.
+
+Backend API: Deve girare sulla porta 3000.
+
+Database (MySQL):
+
+Port: 3306
+
+User: root
+
+Password: rootpassword
+
+Admin Tool: https://adminerttf.lab.home.lucasacchi.net/ (utilizza questo link per verificare la creazione delle tabelle).
+
+Requisiti di Avvio e Deploy
+
+È fondamentale generare i file di configurazione per l'ambiente di produzione fornito.
+Crea uno script di deploy o configura i file necessari (es. ecosystem.config.js per PM2 o un deploy.sh) utilizzando i seguenti dati target:
+
+Host: teamtrello.lab.home.lucasacchi.net
+
+SSH User: teamtrello
+
+SSH Password: teamtrello123. (Nota: Nel codice usa variabili d'ambiente per la password, ma crea un file .env.example o uno script di setup che precompili questi dati per il deploy).
+
+Istruzioni Passo-Passo
+
+Analisi: Leggi attentamente i file allegati (PRD e Analisi) per comprendere le entità del database (Utenti, Workspace, Board, Liste, Card, Commenti) e i flussi utente.
+
+Setup Database: Crea lo script schema.sql per MySQL basato sull'analisi tecnica allegata. Assicurati di gestire correttamente le chiavi esterne e gli indici per le performance. Configura l'ORM/Query Builder per connettersi usando le credenziali root:rootpassword sulla porta 3306.
+
+Backend: Inizializza il server Express sulla porta 3000. Implementa le API REST CRUD e il server Socket.io per la sincronizzazione in tempo reale delle card. Assicurati che CORS sia configurato per accettare richieste dalla porta 8181.
+
+Frontend: Inizializza l'app React (Vite) sulla porta 8181. Configura il proxy o il client API per puntare a localhost:3000. Implementa la logica di Drag & Drop per spostare le card tra le liste.
+
+Configurazione Replit: Crea un file .replit corretto che avvii sia il backend che il frontend contemporaneamente.
+
+Esempio run command: npm run dev (che lancia server e client in parallelo).
+
+Deploy Script: Crea un file setup_deploy.sh che permetta di connettersi via SSH al server teamtrello.lab.home.lucasacchi.net usando l'utente teamtrello per aggiornare l'applicazione.
+
+Output Atteso
+
+Voglio un'applicazione funzionante che posso avviare cliccando "Run" su Replit, con la gestione delle Board/Liste/Card funzionante, il Drag & Drop attivo e la persistenza dei dati su MySQL configurata con le credenziali fornite.
