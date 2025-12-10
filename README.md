@@ -7,7 +7,7 @@ Un clone open-source di Trello: una piattaforma Kanban collaborativa ad alte pre
 **Stato:** Testing (Draft)
 
 ---
-
+ 
 ## **Descrizione**
 
 Trellino implementa le funzionalità core di una piattaforma di project management visuale. Il progetto non è solo un esercizio di stile, ma un sistema scalabile progettato per gestire concorrenza elevata, aggiornamenti in tempo reale e una UX fluida grazie a tecniche avanzate come _optimistic UI updates_ e _virtualization_.
