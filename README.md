@@ -1,9 +1,10 @@
-# **Trellino (Trello Clone)**
+# **Trello Clone**
 
 Un clone open-source di Trello: una piattaforma Kanban collaborativa ad alte prestazioni, progettata con un'architettura moderna orientata agli eventi e un'interfaccia utente reattiva in tempo reale.
 
 **Versione:** 1.0
-**Stato:** In sviluppo (Draft)
+**Data:** 24.11.2025
+**Stato:** Testing (Draft)
 
 ---
 
@@ -13,9 +14,9 @@ Trellino implementa le funzionalità core di una piattaforma di project manageme
 
 Il repository è strutturato come segue:
 
-- **back-end/** — API Server (REST), WebSocket Gateway, logica di business e gestione eventi.
-- **front-end/** — SPA React performante con gestione stato avanzata.
-- **docs/** — Documentazione completa (PRD, Analisi Funzionale, Analisi Tecnica).
+- `back-end/` — API Server (REST), WebSocket Gateway, logica di business e gestione eventi.
+- `front-end/` — SPA React performante con gestione stato avanzata.
+- `docs/` — Documentazione completa (PRD, Analisi Funzionale, Analisi Tecnica).
 
 ---
 
@@ -127,4 +128,43 @@ npm install
 npm run dev
 ```
 
-La piattaforma sarà accessibile all'indirizzo http://localhost:5173 (default Vite).
+La piattaforma sarà accessibile all'indirizzo `http://localhost:5173` (default Vite).
+
+---
+
+## **API Endpoints (Sintesi)**
+
+La comunicazione avviene tramite REST per le mutazioni e WebSocket per gli aggiornamenti.
+
+- **Auth**: `/auth/login`, `/auth/signup`
+- **Workspace**: `/w/:id` (Gestione membri e board)
+- **Board**: `/b/:id` (Fetch dati completi board)
+- **Card**: `/cards/:id` (PATCH per update, POST /move per drag&drop transazionale)
+
+Per la documentazione completa delle API e degli eventi WebSocket, consultare la cartella `docs/`.
+
+---
+
+## **Testing**
+
+Il progetto include suite di test unitari e di integrazione.
+
+- **Front-end**: `npm run test` (Vitest) o `npm run test:e2e` (Playwright)
+- **Back-end**: `npm run test` (Jest/Supertest)
+
+---
+
+## **Roadmap**
+
+- [x] Autenticazione e Workspace
+- [x] Board, Liste e Card (CRUD)
+- [x] Drag & Drop Real-time
+- [ ] Notifiche Push
+- [ ] Upload allegati (S3/MinIO)
+- [ ] Power-ups e Automazioni
+
+---
+
+## **Licenza**
+
+Distribuito sotto licenza MIT. Vedi `LICENSE` per maggiori informazioni.
