@@ -1,17 +1,19 @@
 const { Sequelize } = require('sequelize');
 
+console.log("Tentativo di connessione al DB: 127.0.0.1:3307...");
+
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'trello_clone',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || 'rootpassword',
+  'trello',           
+  'teamtrello',       
+  'teamtrello123.',   
   {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
+    host: '127.0.0.1', 
+    port: 3307,        
     dialect: 'mysql',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    logging: console.log,
     pool: {
       max: 10,
-      min: 0,
+      min: 0,           // <--- Assicurati che qui ci sia la virgola!
       acquire: 30000,
       idle: 10000
     },
