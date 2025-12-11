@@ -3,8 +3,7 @@
 Un clone open-source di Trello: una piattaforma Kanban collaborativa ad alte prestazioni, progettata con un'architettura moderna orientata agli eventi e un'interfaccia utente reattiva in tempo reale.
 
 **Versione:** 1.0
-**Data:** 24.11.2025
-**Stato:** Testing (Draft)
+**Data:** 24 novembre 2025
 
 ---
  
