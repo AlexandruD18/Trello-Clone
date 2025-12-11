@@ -20,6 +20,7 @@ Il repository è strutturato come segue:
 
 ---
 
+
 ## **Stack Tecnologico**
 
 ### **Frontend**
@@ -167,4 +168,4 @@ Il progetto include suite di test unitari e di integrazione.
 
 ## **Licenza**
 
-Distribuito sotto licenza MIT. Vedi `LICENSE` per maggiori informazioni.
+Distribuito sotto licenza MIT. Vedi `LICENSE` per avere maggiori informazioni.
