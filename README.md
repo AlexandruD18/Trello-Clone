@@ -1,4 +1,4 @@
-# **Trello Clone**
+# **Trello Clone** 
 
 Un clone open-source di Trello: una piattaforma Kanban collaborativa ad alte prestazioni, progettata con un'architettura moderna orientata agli eventi e un'interfaccia utente reattiva in tempo reale.
 
