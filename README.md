@@ -14,8 +14,8 @@ Trellino implementa le funzionalità core di una piattaforma di project manageme
 
 Il repository è strutturato come segue:
 
-- `back-end/` — API Server (REST), WebSocket Gateway, logica di business e gestione eventi.
-- `front-end/` — SPA React performante con gestione stato avanzata.
+- `app/server/` — API Server (REST), WebSocket Gateway, logica di business e gestione eventi.
+- `app/client/` — SPA React performante con gestione stato avanzata.
 - `docs/` — Documentazione completa (PRD, Analisi Funzionale, Analisi Tecnica).
 
 ---
