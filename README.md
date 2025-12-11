@@ -168,3 +168,5 @@ Il progetto include suite di test unitari e di integrazione.
 ## **Licenza**
 
 Distribuito sotto licenza MIT. Vedi `LICENSE` per maggiori informazioni.
+
+
