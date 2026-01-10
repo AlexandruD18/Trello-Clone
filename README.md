@@ -1,32 +1,56 @@
-# Trello Clone
+# Trello Clone – Enterprise-Ready Kanban Platform
 
 [![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/your-repo/trello-clone)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-336791.svg)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 
-Un clone open-source di Trello: una piattaforma Kanban collaborativa ad alte prestazioni, progettata con un'architettura moderna orientata agli eventi e un'interfaccia utente reattiva in tempo reale.
+Un clone open-source di Trello: una piattaforma Kanban collaborativa ad **alte prestazioni**, progettata con un'architettura moderna **orientata agli eventi** e un'interfaccia utente **reattiva in tempo reale**. Ideale per portfolio, educazione e deployment enterprise.
 
-**Versione:** 1.0  
-**Data:** 24 novembre 2025  
-**Autore:** Team di Sviluppo Trello Clone
+**Versione:** 1.0 | **Data:** 24 novembre 2025 | **Autore:** Team di Sviluppo Trello Clone
 
 ---
 
-## Indice
+## 🚀 Quick Start
 
-- [Descrizione](#descrizione)
-- [Motivazioni e Obiettivi](#motivazioni-e-obiettivi)
-- [Stack Tecnologico](#stack-tecnologico)
-- [Funzionalità Principali](#funzionalità-principali)
-- [Architettura](#architettura)
-- [Requisiti di Sistema](#requisiti-di-sistema)
-- [Installazione e Avvio](#installazione-e-avvio)
-- [API Endpoints](#api-endpoints)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [Roadmap](#roadmap)
-- [Licenza](#licenza)
+Vuoi iniziare subito? Segui questi 3 step:
+
+```bash
+# 1. Clona il repo
+git clone https://github.com/your-repo/trello-clone.git
+cd Trello-Clone
+
+# 2. Avvia PostgreSQL e Redis con Docker
+docker run --name trello-db -p 5433:5432 -e POSTGRES_USER=trellouser -e POSTGRES_PASSWORD=trellopass -e POSTGRES_DB=trellodb -d postgres:alpine
+docker run --name trello-redis -p 6379:6379 -d redis:alpine
+
+# 3. Avvia server e client
+cd app/server && npm install && npm run dev  # Terminal 1
+cd app/client && npm install && npm run dev  # Terminal 2 (porta 5173)
+```
+
+**Per dettagli completi**, vedi [Guida Avvio Progetto](docs/guida-avvio.md).
+
+---
+
+## 📑 Indice
+
+- [Overview](#-overview)
+- [Features at a Glance](#-features-at-a-glance)
+- [Stack Tecnologico](#-stack-tecnologico)
+- [Architettura](#-architettura)
+- [Project Structure](#-project-structure)
+- [Requisiti e Installazione](#-requisiti-e-installazione)
+- [API & WebSocket](#-api--websocket)
+- [Development](#-development)
+- [Performance Metrics](#-performance-metrics)
+- [Testing](#-testing)
+- [Contributing](#-contributing)
+- [Roadmap](#-roadmap)
+- [Troubleshooting](#-troubleshooting)
+- [Licenza](#-licenza)
 
 ---
 
