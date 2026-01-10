@@ -1,8 +1,12 @@
 # Analisi Funzionale – Trello Clone Frontend
 
-## 1. Obiettivo
+## 1. Introduzione
 
-L’analisi funzionale definisce **cosa deve fare l’applicazione** dal punto di vista dell’utente e dei processi principali, senza scendere nei dettagli di implementazione tecnica. Serve come ponte tra requisiti di prodotto (PRD) e implementazione tecnica.
+L'analisi funzionale definisce le funzionalità che l'applicazione deve offrire dal punto di vista dell'utente e dei processi principali, senza dettagli implementativi tecnici. Questo documento funge da ponte tra i requisiti di prodotto (PRD) e l'implementazione tecnica, assicurando che tutte le feature siano allineate con le esigenze degli utenti.
+
+**Scopo:** Descrivere cosa l'applicazione deve fare, i flussi utente e i vincoli operativi.
+
+**Ambito:** Frontend dell'applicazione Trello Clone, inclusi autenticazione, gestione board, drag-and-drop, real-time updates e accessibilità.
 
 ---
 
@@ -10,210 +14,220 @@ L’analisi funzionale definisce **cosa deve fare l’applicazione** dal punto d
 
 ### 2.1 Autenticazione e Workspace
 
-**Funzionalità:**
-- Login / Logout
-- Registrazione account
-- Recupero password
-- Selezione e navigazione tra workspace
-- Protezione delle route in base all’autenticazione
+**Descrizione:**
 
-**Flussi:**
-1. L’utente accede tramite login → viene reindirizzato al workspace principale.
-2. Workspace protetto da autenticazione; accesso negato se non autenticato.
-3. Possibilità di switch tra workspace con gestione di permessi.
+- Login e logout sicuri.
+- Registrazione nuovi account.
+- Recupero password.
+- Navigazione e selezione tra workspace.
+- Protezione delle route basata sull'autenticazione.
+
+**Flussi Utente:**
+
+1. Utente accede con credenziali → reindirizzamento al workspace principale.
+2. Accesso negato senza autenticazione.
+3. Switch tra workspace con controllo permessi.
 
 **Vincoli:**
-- Token JWT o sessione salvata nel client
-- Accesso offline limitato (solo dati già caricati)
 
----
+- Utilizzo di token JWT o sessioni client-side.
+- Accesso offline limitato ai dati già caricati.
 
 ### 2.2 Board Management
 
-**Funzionalità:**
-- Visualizzazione board con liste e card
-- Drag-and-drop di liste e card
-- Ordinamento e filtri (membri, etichette, date)
-- Scroll orizzontale per board con molte liste
-- Aggiornamenti real-time tramite socket
+**Descrizione:**
 
-**Flussi principali:**
-1. L’utente visualizza la board → tutte le liste e card vengono caricate (virtualizzate per performance).
-2. L’utente trascina una card → aggiornamento immediato dell’interfaccia (optimistic update) → invio evento al server → sincronizzazione real-time su altri client.
-3. L’utente aggiunge/modifica/elimina card o liste → mutazioni con gestione ottimistica e rollback in caso di errore.
+- Visualizzazione board con liste e card.
+- Drag-and-drop di liste e card.
+- Ordinamento e filtri (per membri, etichette, date).
+- Scroll orizzontale per board estese.
+- Aggiornamenti real-time via WebSocket.
+
+**Flussi Principali:**
+
+1. Caricamento board → liste e card virtualizzate per performance.
+2. Drag card → update UI immediato (optimistic), invio server, sync real-time.
+3. CRUD su card/liste → mutazioni ottimistiche con rollback su errore.
 
 **Vincoli:**
-- Supporto per 1000+ card senza lag
-- Aggiornamento real-time con conflitti gestiti (merge/last-write-wins)
-- Drag-and-drop latency < 100ms
-- Layout responsive (mobile stack verticale, desktop scroll orizzontale)
 
----
+- Supporto 1000+ card senza lag.
+- Gestione conflitti real-time (merge/last-write-wins).
+- Latency drag-and-drop < 100ms.
+- Responsive: mobile verticale, desktop orizzontale.
 
 ### 2.3 Gestione Liste
 
-**Funzionalità:**
-- Creazione, rinomina e cancellazione di liste
-- Drag-and-drop di card all’interno della lista
-- “Add card” inline
-- Stato espanso/collassato
+**Descrizione:**
 
-**Flussi principali:**
-1. L’utente clicca “Add list” → form inline → salva → lista aggiornata localmente e sul server.
-2. L’utente trascina una card dentro una lista → placeholder visivo, aggiornamento stato UI e server.
-3. Rinomina lista → input inline → validazione e update server.
+- CRUD liste (crea, rinomina, elimina).
+- Drag-and-drop card interne.
+- Aggiunta card inline.
+- Stati espanso/collassato.
+
+**Flussi:**
+
+1. "Add list" → form inline → salvataggio locale e server.
+2. Drag card → placeholder, update UI/server.
+3. Rinomina → input inline → validazione e update.
 
 **Vincoli:**
-- Fixed header durante scroll verticale
-- Drag handle e feedback visivo
-- Empty state placeholder
 
----
+- Header fisso durante scroll.
+- Feedback visivo drag.
+- Placeholder per liste vuote.
 
 ### 2.4 Gestione Card
 
-**Funzionalità:**
-- Visualizzazione card compatta
-- Badges per etichette, membri, checklist, allegati, commenti
-- Hover con quick actions (edit, assign)
-- Card Modal per dettagli
-- Drag-and-drop card
-- Supporto @mention e markdown nei commenti
+**Descrizione:**
 
-**Flussi principali:**
-1. Click su card → apertura Card Modal
-2. Modifica dettagli (descrizione, checklist, membri, allegati) → auto-save con debounce
-3. Inserimento commento → invio real-time
-4. Drag card → spostamento tra liste o riordinamento
-5. Visualizzazione badge sintetica sulla card
+- Vista compatta card con badges (etichette, membri, checklist, allegati, commenti).
+- Quick actions su hover (edit, assign).
+- Modal dettagli card.
+- Drag-and-drop card.
+- Supporto @mention e Markdown in commenti.
+
+**Flussi:**
+
+1. Click card → apertura modal.
+2. Modifica dettagli → auto-save con debounce.
+3. Commento → invio real-time.
+4. Drag → spostamento/riordinamento.
+5. Badge sintetici sulla card.
 
 **Vincoli:**
-- Lazy load della Card Modal e attività
-- Virtualizzazione commenti se > 50
-- Keyboard navigation supportata
 
----
+- Lazy load modal e attività.
+- Virtualizzazione commenti > 50.
+- Navigazione tastiera.
 
 ### 2.5 Card Modal
 
-**Funzionalità:**
-- Editor dettagli completo
-- Sidebar con azioni rapide (membri, labels, checklist, allegati)
-- Thread commenti e attività
-- Rich text editor e markdown
-- Real-time sync tra utenti
+**Descrizione:**
 
-**Flussi principali:**
-1. Apertura modal → fetch dati card tramite TanStack Query
-2. Modifica campi → ottimistic update → conferma server → broadcast real-time
-3. Commenti con @mention → suggerimenti e invio real-time
-4. Chiusura modal → focus ritorna al precedente elemento
+- Editor completo dettagli.
+- Sidebar azioni (membri, labels, checklist, allegati).
+- Thread commenti e attività.
+- Rich text editor con Markdown.
+- Sync real-time tra utenti.
+
+**Flussi:**
+
+1. Apertura → fetch dati via TanStack Query.
+2. Modifiche → optimistic update → conferma server → broadcast.
+3. Commenti @mention → suggerimenti, invio real-time.
+4. Chiusura → focus ritorno.
 
 **Vincoli:**
-- Lazy load e code splitting
-- Accessibilità completa (focus trap, ARIA labels)
-- Full-screen su mobile
 
----
+- Lazy load e code splitting.
+- Accessibilità (focus trap, ARIA).
+- Full-screen mobile.
 
 ### 2.6 Drag-and-Drop
 
-**Funzionalità:**
-- Drag card e liste
-- Animazioni smooth e clone fantasma
-- Placeholder visibile durante drag
-- Auto-scroll quando vicino ai bordi
-- Touch support e haptic feedback su mobile
+**Descrizione:**
 
-**Flussi principali:**
-1. Inizio drag → visualizzazione clone fantasma + highlight drop zone
-2. Fine drag → update UI immediato, invio evento server
-3. Esc cancella drag
-4. Drag tra liste con lunghezze diverse → gestione edge case
+- Drag card e liste.
+- Animazioni smooth, clone fantasma.
+- Placeholder durante drag.
+- Auto-scroll ai bordi.
+- Supporto touch e haptic su mobile.
 
-**Vincoli:**
-- Performance ottimizzata con memoization
-- Gestione conflitti real-time
+**Flussi:**
 
----
-
-### 2.7 Aggiornamenti Real-time
-
-**Funzionalità:**
-- Sincronizzazione board/list/card in tempo reale
-- Visualizzazione modifiche da altri utenti
-- Gestione conflitti e indicatori visivi
-
-**Flussi principali:**
-1. Utente A crea/modifica card → evento socket → aggiornamento store client B
-2. Utente offline → coda mutazioni → sincronizzazione al ritorno online
-3. Last-write-wins per testi, merge per array (labels, members)
+1. Inizio drag → clone + highlight zone.
+2. Fine drag → update UI, invio server.
+3. Esc → cancella.
+4. Edge case tra liste diverse.
 
 **Vincoli:**
-- Feedback visivo quando altri utenti aggiornano
-- Offline banner e retry automatico
 
----
+- Ottimizzazioni performance (memoization).
+- Gestione conflitti real-time.
+
+### 2.7 Aggiornamenti Real-Time
+
+**Descrizione:**
+
+- Sync board/liste/card in tempo reale.
+- Visualizzazione modifiche altrui.
+- Gestione conflitti e indicatori.
+
+**Flussi:**
+
+1. Utente A modifica → evento socket → update client B.
+2. Offline → coda mutazioni → sync online.
+3. Last-write-wins testi, merge array.
+
+**Vincoli:**
+
+- Feedback visivo aggiornamenti.
+- Banner offline e retry.
 
 ### 2.8 Performance e Ottimizzazione
 
-**Funzionalità:**
-- Virtualizzazione liste e card
-- Memoization e useCallback per componenti costosi
-- Lazy load di modali e pagine
-- Ottimizzazione immagini (responsive, lazy loading, blur placeholder)
-- Bundle size < 300KB gzipped
+**Descrizione:**
 
----
+- Virtualizzazione liste/card.
+- Memoization e useCallback.
+- Lazy load modali/pagine.
+- Ottimizzazione immagini.
+- Bundle < 300KB gzipped.
 
 ### 2.9 Accessibilità (A11y)
 
-**Funzionalità:**
-- Navigazione via tastiera e shortcut
-- ARIA labels per card e liste
-- Focus management nelle modali
-- Live regions per notifiche
-- Contrasto colore WCAG AA
+**Descrizione:**
+
+- Navigazione tastiera/shortcut.
+- ARIA labels.
+- Focus management.
+- Live regions notifiche.
+- Contrasto WCAG AA.
 
 **Vincoli:**
-- Tab navigation tra card, liste e modali
-- Esc per chiusura modali
-- Screen reader-friendly
 
----
+- Tab navigation.
+- Esc chiusura.
+- Screen reader compatibile.
 
 ### 2.10 Notifiche ed Error Handling
 
-**Funzionalità:**
-- Toast notifications per successi e errori
-- Inline error messages per form
-- Skeleton screens e overlay loading
-- Error boundaries per componenti critici
+**Descrizione:**
 
----
+- Toast per success/error.
+- Error inline form.
+- Skeleton e loading overlay.
+- Error boundaries.
 
 ### 2.11 Routing e URL State
 
-**Funzionalità:**
-- Route principali: `/`, `/login`, `/signup`, `/w/:workspaceId`, `/b/:boardId`, `/b/:boardId/c/:cardId`
-- URL riflette stato della Card Modal
-- Protezione route per utenti non autenticati
+**Descrizione:**
 
-**Flussi principali:**
-1. Navigate a `/b/:boardId/c/:cardId` → apre modal card
-2. Chiusura modal → ritorna a `/b/:boardId`
-3. Cambio workspace → fetch board list
+- Route: `/`, `/login`, `/signup`, `/w/:workspaceId`, `/b/:boardId`, `/b/:boardId/c/:cardId`.
+- URL riflette modal card.
+- Protezione route autenticati.
 
----
+**Flussi:**
+
+1. Navigate a card URL → apre modal.
+2. Chiusura → back to board.
+3. Cambio workspace → fetch boards.
 
 ### 2.12 Responsive Design
 
-**Funzionalità:**
-- Mobile (<768px): liste verticali, full-width card, bottom sheet per sidebar
-- Tablet / Desktop: board scroll orizzontale, sidebar fissa
-- Hamburger menu e swipe gestures per mobile
-- Touch-friendly drag-and-drop
+**Descrizione:**
+
+- Mobile (<768px): liste verticali, card full-width, bottom sheet sidebar.
+- Tablet/Desktop: scroll orizzontale, sidebar fissa.
+- Hamburger menu, swipe gestures.
+- Touch-friendly drag.
 
 ---
 
 ## 3. KPI Funzionali
+
+- **User Satisfaction:** > 90% su survey UX.
+- **Task Completion Rate:** > 95% per flussi principali.
+- **Error Rate:** < 5% azioni fallite.
+- **Accessibility Score:** 95+ Lighthouse.

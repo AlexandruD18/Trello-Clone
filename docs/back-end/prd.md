@@ -1,74 +1,152 @@
-# **Trello-Clone Backend – PRD**
+# Trello Clone Backend – PRD
 
-**Versione:** 1.0
-**Data:** 19/11/2025
-**Autore:** Team di sviluppo
-**Revisori:** Da definire
-**Stato:** Bozza
+## 1. Overview
 
----
+**Descrizione Sintetica:**  
+Realizzazione del backend per un sistema Kanban ispirato a Trello, con board condivise, liste ordinate, card dettagliate, drag & drop real-time, permessi per team e workspace.
 
-## **1. Overview**
+**Obiettivo Principale:**  
+Creare un backend solido che supporti aggiornamenti real-time, persistenza affidabile e collaborazione multi-utente con gestione concorrenza.
 
-**Descrizione sintetica:**
-Realizzare il backend di un sistema Kanban ispirato a Trello, con:
+**Benefici Attesi:**
 
-* Board condivise
-* Liste ordinate
-* Card con descrizioni, checklist, tag, membri
-* Drag & drop con sincronizzazione real-time
-* Permission per team e workspace
-* Attività collaborative multi-utente
-
-**Obiettivo principale:**
-Creare un backend solido che permetta:
-
-* Stato aggiornato in real-time delle board
-* Persistenza affidabile di card, liste e attività
-* Ruoli e autorizzazioni granulari
-* Scalabilità per uso intenso multi-team
-* API REST + WebSocket per feed real-time
-
-**Benefici attesi:**
-
-* Board responsive e coerenti per più utenti
-* Struttura pulita per integrazioni future
-* Sistema sicuro che evita conflitti di editing
-* Incremento velocità decisionale nei team
+- Board responsive e coerenti per più utenti.
+- Struttura pulita per integrazioni future.
+- Sistema sicuro che evita conflitti editing.
 
 ---
 
-## **2. Problem Statement**
+## 2. Problem Statement
 
-**Contesto attuale:**
-Sistemi Kanban improvvisati o monolitici cedono quando più utenti editano contemporaneamente board complesse.
+**Contesto Attuale:**  
+Sistemi Kanban improvvisati cedono con editing simultaneo su board complesse.
 
-**Problemi specifici:**
+**Problemi Specifici:**
 
-* **Conflitti di modifica:** due utenti modificano la stessa board → caos
-* **Sincronizzazione lenta:** drag & drop non aggiornati in tempo reale
-* **Nessun audit o storico:** impossibile sapere chi ha fatto cosa
-* **Scalabilità debole:** board grandi = lentezza = abbandono prodotto
+- Conflitti modifica.
+- Sincronizzazione lenta.
+- Mancanza audit.
+- Scalabilità debole.
 
-**Soluzione proposta:**
+**Soluzione Proposta:**
 
-* WebSocket per broadcast istantaneo degli eventi sulle board
-* Storage relazionale con transazioni atomiche
-* Pub/Sub (Redis) per coordinare più istanze backend
-* Modello permission chiarissimo: workspace → board → ruoli
-* Locking ottimistico per operazioni concorrenti
+- WebSocket per broadcast real-time.
+- DB relazionale con transazioni.
+- Pub/Sub Redis per coordinamento.
+- RBAC granulare.
+- Locking ottimistico.
 
 ---
 
-## **3. Goals & Success Metrics**
+## 3. Goals & Success Metrics
 
-| Obiettivo                | KPI / Metrica di successo         | Target   |
-| ------------------------ | --------------------------------- | -------- |
-| Real-time board updates  | Latenza media evento → client     | < 150 ms |
-| Consistenza dati         | Errori di conflitto modifiche     | < 0,1%   |
-| Persistenza card         | Messaggi/eventi registrati        | ≥ 99,9%  |
-| Scalabilità utenti board | Utenti simultanei su stessa board | ≥ 500    |
-| Uptime                   | Disponibilità backend             | ≥ 99,9%  |
+| Obiettivo          | KPI                     | Target   |
+| ------------------ | ----------------------- | -------- |
+| Real-time updates  | Latenza evento → client | < 150 ms |
+| Consistenza dati   | Errori conflitto        | < 0.1%   |
+| Persistenza        | Eventi registrati       | ≥ 99.9%  |
+| Scalabilità utenti | Utenti simultanei/board | ≥ 500    |
+| Uptime             | Disponibilità           | ≥ 99.9%  |
+
+---
+
+## 4. User Personas
+
+| Persona          | Esigenza                 | Scenario                                       |
+| ---------------- | ------------------------ | ---------------------------------------------- |
+| Team Member      | Gestire task             | Crea/sposta card, aggiorna checklist real-time |
+| Project Manager  | Visione macro + permessi | Organizza board, assegna membri                |
+| Stakeholder      | Osservazione             | Visualizza evoluzione senza edit               |
+| Dev Integrazioni | Automazioni              | API per card automatiche                       |
+
+---
+
+## 5. Functional Requirements
+
+| ID    | Titolo           | Descrizione                                   | Priorità |
+| ----- | ---------------- | --------------------------------------------- | -------- |
+| RF-01 | Autenticazione   | Login/signup, JWT, refresh-token              | Alta     |
+| RF-02 | Workspace        | CRUD, inviti, ruoli                           | Alta     |
+| RF-03 | Board            | CRUD board, visibilità, membri                | Alta     |
+| RF-04 | Liste            | CRUD + ordering + drag/drop                   | Alta     |
+| RF-05 | Card             | CRUD card, descrizione, scadenze, tag, membri | Alta     |
+| RF-06 | Checklist        | CRUD checklist + item                         | Media    |
+| RF-07 | Commenti         | Commenti real-time                            | Media    |
+| RF-08 | Real-time        | Broadcast WS su board/liste/card              | Alta     |
+| RF-09 | Audit log        | Storico attività                              | Media    |
+| RF-10 | Filtri & ricerca | Ricerca testo/tag/utente/data                 | Media    |
+| RF-11 | Notifiche        | Notifiche interne eventi                      | Bassa    |
+
+**Note:** Spostamenti card/liste transazionali atomici. Board supportano concorrenza elevata.
+
+---
+
+## 6. Non-Functional Requirements
+
+| ID     | Categoria     | Descrizione                                         |
+| ------ | ------------- | --------------------------------------------------- |
+| RNF-01 | Scalabilità   | Multi-istanza con Pub/Sub                           |
+| RNF-02 | Affidabilità  | Transazioni ACID + retry                            |
+| RNF-03 | Performance   | Query ottimizzate board pesanti                     |
+| RNF-04 | Sicurezza     | RBAC, validazioni, rate limiting, TLS               |
+| RNF-05 | Coerenza      | Locking ottimistico modifiche                       |
+| RNF-06 | Usabilità API | Endpoints puliti, versionamento, errori strutturati |
+
+---
+
+## 7. Architecture Overview
+
+**Componenti High-Level:**
+
+- Client → WS + REST
+- Gateway Server → gestisce WS, subscription board
+- Board Service → logica card/liste/ordering
+- API Server → CRUD, auth
+- Event Service → audit log + eventi
+- DB → PostgreSQL relazionale
+- Cache → Redis cluster
+- LB → sticky sessions WS
+
+**Diagramma Concettuale:**  
+Client → LB → Gateway WS Server  
+↓ Pub/Sub (Redis)  
+Board Service → API Server → DB/Cache
+
+---
+
+## 8. Dependencies
+
+| Servizio/Tecnologia | Descrizione      | Note                  |
+| ------------------- | ---------------- | --------------------- |
+| Redis               | Cache + Pub/Sub  | Coordinamento istanze |
+| WS Library          | Eventi real-time | WS nativo o Socket.IO |
+| PostgreSQL          | Persistenza      | Schema rigoroso       |
+| LB/Envoy/Nginx      | Balancing        | Sticky WS             |
+| Service Discovery   | Microservizi     | Consul/etcd           |
+
+---
+
+## 9. Risks & Mitigations
+
+| Rischio                  | Impatto | Mitigazione                         |
+| ------------------------ | ------- | ----------------------------------- |
+| Conflitti modifica       | Alto    | Locking ottimistico + versioning    |
+| Board pesanti = lentezza | Alto    | Caching + paginazione + diff-eventi |
+| Failover WS              | Alto    | Server replicati + reconnect        |
+| Permessi complessi       | Medio   | RBAC semplice                       |
+| Latenza multi-utente     | Medio   | Redis Pub/Sub + scaling             |
+
+---
+
+## 10. Milestones
+
+| Fase | Descrizione                    | Scadenza     |
+| ---- | ------------------------------ | ------------ |
+| 1    | Setup ambiente, auth, API base | 4 settimane  |
+| 2    | Workspace + Board + Liste      | 8 settimane  |
+| 3    | Card + Checklist + Commenti    | 12 settimane |
+| 4    | Real-time WS + Pub/Sub         | 16 settimane |
+| 5    | Audit log, filtri, ricerca     | 20 settimane |
 
 ---
 
@@ -101,9 +179,9 @@ Sistemi Kanban improvvisati o monolitici cedono quando più utenti editano conte
 
 **Note aggiuntive:**
 
-* Spostamenti card/liste devono essere transazionali e atomici
-* Le board devono supportare concorrenza elevata
-* WebSocket deve riflettere ogni modifica in <150 ms
+- Spostamenti card/liste devono essere transazionali e atomici
+- Le board devono supportare concorrenza elevata
+- WebSocket deve riflettere ogni modifica in <150 ms
 
 ---
 
@@ -124,18 +202,19 @@ Sistemi Kanban improvvisati o monolitici cedono quando più utenti editano conte
 
 **High-Level Components:**
 
-* **Client:** WebSocket + API REST
-* **Gateway Server:** gestisce connessioni WebSocket e subscription board
-* **Board Service:** logica card/liste/ordinamento
-* **Workspace Service:** ruoli, permessi, membri
-* **Event Service:** audit log + recursion event-based
-* **API Server:** CRUD e business logic
-* **Database:** PostgreSQL/MySQL con schema relazionale
-* **Cache Server:** Redis per:
+- **Client:** WebSocket + API REST
+- **Gateway Server:** gestisce connessioni WebSocket e subscription board
+- **Board Service:** logica card/liste/ordinamento
+- **Workspace Service:** ruoli, permessi, membri
+- **Event Service:** audit log + recursion event-based
+- **API Server:** CRUD e business logic
+- **Database:** PostgreSQL/MySQL con schema relazionale
+- **Cache Server:** Redis per:
 
-  * Pub/Sub messaging
-  * caching di board pesanti
-* **Load Balancer:** distribuzione WebSocket e API
+  - Pub/Sub messaging
+  - caching di board pesanti
+
+- **Load Balancer:** distribuzione WebSocket e API
 
 **Diagramma concettuale (testuale):**
 
@@ -185,19 +264,19 @@ Client <—REST—> API Server <—DB/Cache—> PostgreSQL + Redis
 
 ## **11. Future Enhancements**
 
-* Allegati file
-* Automazioni tipo “Power-Ups”
-* Integrazioni Google Drive / GitHub
-* Template board
-* Webhooks per attività esterne
-* Rule engine (trigger → action)
+- Allegati file
+- Automazioni tipo “Power-Ups”
+- Integrazioni Google Drive / GitHub
+- Template board
+- Webhooks per attività esterne
+- Rule engine (trigger → action)
 
 ---
 
 ## **12. Appendici**
 
-* Schema DB completo
-* Contract API REST (request/response)
-* Elenco eventi WebSocket (`card_moved`, `list_updated`, `card_updated`, `comment_added`, …)
-* Sequence diagram per operazioni critiche
-* Standard naming per entità e ID
+- Schema DB completo
+- Contract API REST (request/response)
+- Elenco eventi WebSocket (`card_moved`, `list_updated`, `card_updated`, `comment_added`, …)
+- Sequence diagram per operazioni critiche
+- Standard naming per entità e ID
