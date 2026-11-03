@@ -1,14 +1,18 @@
+require('dotenv').config();
 const { Sequelize } = require('sequelize');
 
-console.log("Tentativo di connessione al DB: 127.0.0.1:3307...");
+const host = process.env.DB_HOST || '127.0.0.1';
+const port = Number(process.env.DB_PORT) || 3307;
+
+console.log(`Tentativo di connessione al DB: ${host}:${port}...`);
 
 const sequelize = new Sequelize(
-  'trello',           
-  'teamtrello',       
-  'teamtrello123.',   
+  process.env.DB_NAME || 'trello',           
+  process.env.DB_USER || 'teamtrello',       
+  process.env.DB_PASSWORD,   
   {
-    host: '127.0.0.1', 
-    port: 3307,        
+    host, 
+    port,        
     dialect: 'mysql',
     logging: console.log,
     pool: {
