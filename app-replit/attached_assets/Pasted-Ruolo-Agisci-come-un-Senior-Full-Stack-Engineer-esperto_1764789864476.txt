@@ -43,7 +43,7 @@ Host: teamtrello.lab.home.lucasacchi.net
 
 SSH User: teamtrello
 
-SSH Password: teamtrello123. (Nota: Nel codice usa variabili d'ambiente per la password, ma crea un file .env.example o uno script di setup che precompili questi dati per il deploy).
+SSH Password: <PASSWORD_RIMOSSA> (Nota: Nel codice usa variabili d'ambiente per la password, ma crea un file .env.example o uno script di setup che precompili questi dati per il deploy).
 
 Istruzioni Passo-Passo
 
