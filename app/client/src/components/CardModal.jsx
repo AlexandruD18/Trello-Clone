@@ -1,22 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import {
     X,
     Tag,
-    Users,
     Calendar,
     CheckSquare,
     MessageSquare,
     Trash2,
     Clock,
-    Plus,
     Check,
     AlignLeft,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-function CardModal({ card, boardId, labels, members, onClose, onUpdate, onDelete }) {
+function CardModal({ card, labels, onClose, onUpdate, onDelete }) {
     const { user } = useAuth();
     const [cardData, setCardData] = useState(null);
     const [title, setTitle] = useState(card.title);
@@ -25,7 +23,6 @@ function CardModal({ card, boardId, labels, members, onClose, onUpdate, onDelete
     const [isEditingDescription, setIsEditingDescription] = useState(false);
     const [newComment, setNewComment] = useState('');
     const [showLabels, setShowLabels] = useState(false);
-    const [showMembers, setShowMembers] = useState(false);
     const [showDueDate, setShowDueDate] = useState(false);
     const [dueDate, setDueDate] = useState(
         card.dueDate ? format(new Date(card.dueDate), 'yyyy-MM-dd') : ''

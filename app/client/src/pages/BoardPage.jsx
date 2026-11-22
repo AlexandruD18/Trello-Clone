@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     DndContext,
@@ -33,7 +33,6 @@ function BoardPage() {
     const [lists, setLists] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeCard, setActiveCard] = useState(null);
-    const [activeList, setActiveList] = useState(null);
     const [showAddList, setShowAddList] = useState(false);
     const [newListName, setNewListName] = useState('');
 
@@ -261,9 +260,6 @@ function BoardPage() {
         if (type === 'card') {
             const result = findCard(active.id);
             if (result) setActiveCard(result.card);
-        } else if (type === 'list') {
-            const list = lists.find((l) => l.id === active.id);
-            if (list) setActiveList(list);
         }
     };
 
@@ -317,7 +313,6 @@ function BoardPage() {
         const { active, over } = event;
 
         setActiveCard(null);
-        setActiveList(null);
 
         if (!over) return;
 
@@ -548,9 +543,7 @@ function BoardPage() {
             {selectedCard && (
                 <CardModal
                     card={selectedCard}
-                    boardId={boardId}
                     labels={board.labels || []}
-                    members={board.members || []}
                     onClose={handleCloseModal}
                     onUpdate={handleCardUpdate}
                     onDelete={handleCardDelete}

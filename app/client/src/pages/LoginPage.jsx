@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, Mail, Lock, AlertCircle } from 'lucide-react';
@@ -84,7 +84,7 @@ function LoginPage() {
                 </form>
 
                 <p className="mt-6 text-center text-sm text-gray-600">
-                    Don't have an account?{' '}
+                    Don&apos;t have an account?{' '}
                     <Link to="/register" className="text-trello-blue hover:underline font-medium">
                         Sign up
                     </Link>

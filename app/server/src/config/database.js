@@ -17,7 +17,7 @@ const sequelize = new Sequelize(
         logging: console.log,
         pool: {
             max: 10,
-            min: 0, // <--- Assicurati che qui ci sia la virgola!
+            min: 0,
             acquire: 30000,
             idle: 10000,
         },

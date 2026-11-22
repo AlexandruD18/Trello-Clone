@@ -1,4 +1,4 @@
-const { List, Card, User, Label, Checklist, ChecklistItem, Comment } = require('../models');
+const { List, Card, User, Label } = require('../models');
 
 const createList = async (req, res) => {
     try {
