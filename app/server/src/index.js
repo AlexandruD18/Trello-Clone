@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 const { sequelize } = require('./models');
 const { setupSocketHandlers } = require('./socket/socketHandler');
@@ -49,6 +50,15 @@ app.use('/api/labels', labelRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// In produzione lo stesso processo serve anche il client compilato.
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = path.resolve(__dirname, '../../client/dist');
+  app.use(express.static(clientDist));
+  app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 app.use((err, req, res, next) => {
   console.error('Error:', err);
