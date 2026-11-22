@@ -1,0 +1,69 @@
+name: CI
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    qualita:
+        name: Lint e formattazione
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            - run: npm run lint
+            - run: npm run format:check
+
+    test:
+        name: Test API
+        runs-on: ubuntu-latest
+        env:
+            DB_HOST: 127.0.0.1
+            DB_PORT: 3306
+            DB_NAME: trello_test
+            DB_USER: trello
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            # MySQL usa e getta con credenziali casuali generate a ogni esecuzione.
+            - name: Avvia MySQL
+              run: |
+                  segreto="$(openssl rand -hex 24)"
+                  echo "::add-mask::$segreto"
+                  echo "DB_PASSWORD=$segreto" >> "$GITHUB_ENV"
+                  docker run -d --name mysql -p 3306:3306                       -e MYSQL_RANDOM_ROOT_PASSWORD=yes                       -e MYSQL_DATABASE="$DB_NAME"                       -e MYSQL_USER="$DB_USER"                       -e MYSQL_PASSWORD="$segreto"                       mysql:8.4
+                  for i in $(seq 1 60); do
+                      docker exec mysql mysql -u"$DB_USER" -p"$segreto" -e 'SELECT 1' "$DB_NAME" >/dev/null 2>&1 && exit 0
+                      sleep 2
+                  done
+                  docker logs mysql
+                  exit 1
+            - run: npm ci
+            - run: npm test
+
+    build:
+        name: Build del client
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            - run: npm run build
