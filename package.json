@@ -1,0 +1,23 @@
+{
+    "name": "trello-clone",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Bacheca Kanban collaborativa in tempo reale (React, Express, Socket.IO, MySQL)",
+    "license": "MIT",
+    "author": "Alexandru Mihai Dimofte",
+    "workspaces": [
+        "app/server",
+        "app/client"
+    ],
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "concurrently -n server,client -c blue,magenta \"npm run dev -w app/server\" \"npm run dev -w app/client\"",
+        "build": "npm run build -w app/client",
+        "start": "npm start -w app/server"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1"
+    }
+}
