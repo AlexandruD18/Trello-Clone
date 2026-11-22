@@ -4,8 +4,6 @@ const { Sequelize } = require('sequelize');
 const host = process.env.DB_HOST || '127.0.0.1';
 const port = Number(process.env.DB_PORT) || 3307;
 
-console.log(`Tentativo di connessione al DB: ${host}:${port}...`);
-
 const sequelize = new Sequelize(
     process.env.DB_NAME || 'trello',
     process.env.DB_USER || 'teamtrello',
@@ -14,7 +12,8 @@ const sequelize = new Sequelize(
         host,
         port,
         dialect: 'mysql',
-        logging: console.log,
+        // Le query SQL finiscono nel log solo se richiesto esplicitamente.
+        logging: process.env.DB_LOGGING === 'true' ? console.log : false,
         pool: {
             max: 10,
             min: 0,
