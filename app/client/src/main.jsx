@@ -7,13 +7,13 @@ import { SocketProvider } from './context/SocketContext';
 import './styles/index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <SocketProvider>
-          <App />
-        </SocketProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+    <React.StrictMode>
+        <BrowserRouter>
+            <AuthProvider>
+                <SocketProvider>
+                    <App />
+                </SocketProvider>
+            </AuthProvider>
+        </BrowserRouter>
+    </React.StrictMode>
 );

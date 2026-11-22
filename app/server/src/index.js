@@ -21,19 +21,26 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: {
-    origin: ['http://localhost:5000', 'http://localhost:8181', 'http://0.0.0.0:5000', 'http://localhost:5173'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-  }
+    cors: {
+        origin: [
+            'http://localhost:5000',
+            'http://localhost:8181',
+            'http://0.0.0.0:5000',
+            'http://localhost:5173',
+        ],
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        credentials: true,
+    },
 });
 
 setupSocketHandlers(io);
 
-app.use(cors({
-  origin: ['http://localhost:5000', 'http://localhost:8181', 'http://0.0.0.0:5000'],
-  credentials: true
-}));
+app.use(
+    cors({
+        origin: ['http://localhost:5000', 'http://localhost:8181', 'http://0.0.0.0:5000'],
+        credentials: true,
+    })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -48,45 +55,45 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/labels', labelRoutes);
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // In produzione lo stesso processo serve anche il client compilato.
 if (process.env.NODE_ENV === 'production') {
-  const clientDist = path.resolve(__dirname, '../../client/dist');
-  app.use(express.static(clientDist));
-  app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
-  });
+    const clientDist = path.resolve(__dirname, '../../client/dist');
+    app.use(express.static(clientDist));
+    app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res) => {
+        res.sendFile(path.join(clientDist, 'index.html'));
+    });
 }
 
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+app.use((err, req, res, _next) => {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('Database connection established successfully.');
+    try {
+        await sequelize.authenticate();
+        console.log('Database connection established successfully.');
 
-    await sequelize.sync({ alter: true });
-    console.log('Database synchronized.');
+        await sequelize.sync({ alter: true });
+        console.log('Database synchronized.');
 
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Socket.IO running on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error('Unable to connect to the database:', error);
-    console.log('Starting server without database connection...');
-    
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on port ${PORT} (without database)`);
-    });
-  }
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log(`Socket.IO running on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Unable to connect to the database:', error);
+        console.log('Starting server without database connection...');
+
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log(`Server running on port ${PORT} (without database)`);
+        });
+    }
 };
 
 startServer();

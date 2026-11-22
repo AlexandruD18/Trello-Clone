@@ -1,8 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  createChecklist, updateChecklist, deleteChecklist,
-  createChecklistItem, updateChecklistItem, deleteChecklistItem 
+const {
+    createChecklist,
+    updateChecklist,
+    deleteChecklist,
+    createChecklistItem,
+    updateChecklistItem,
+    deleteChecklistItem,
 } = require('../controllers/checklistController');
 const { authenticate } = require('../middleware/auth');
 

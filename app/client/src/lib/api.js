@@ -1,47 +1,47 @@
 const API_BASE_URL = '/api';
 
 const api = {
-  async request(method, endpoint, data = null) {
-    const token = localStorage.getItem('token');
-    
-    const config = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    };
+    async request(method, endpoint, data = null) {
+        const token = localStorage.getItem('token');
 
-    if (data) {
-      config.body = JSON.stringify(data);
-    }
+        const config = {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token && { Authorization: `Bearer ${token}` }),
+            },
+        };
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    
-    const responseData = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(responseData.error || 'Request failed');
-    }
+        if (data) {
+            config.body = JSON.stringify(data);
+        }
 
-    return { data: responseData };
-  },
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
-  get(endpoint) {
-    return this.request('GET', endpoint);
-  },
+        const responseData = await response.json();
 
-  post(endpoint, data) {
-    return this.request('POST', endpoint, data);
-  },
+        if (!response.ok) {
+            throw new Error(responseData.error || 'Request failed');
+        }
 
-  put(endpoint, data) {
-    return this.request('PUT', endpoint, data);
-  },
+        return { data: responseData };
+    },
 
-  delete(endpoint) {
-    return this.request('DELETE', endpoint);
-  }
+    get(endpoint) {
+        return this.request('GET', endpoint);
+    },
+
+    post(endpoint, data) {
+        return this.request('POST', endpoint, data);
+    },
+
+    put(endpoint, data) {
+        return this.request('PUT', endpoint, data);
+    },
+
+    delete(endpoint) {
+        return this.request('DELETE', endpoint);
+    },
 };
 
 export default api;

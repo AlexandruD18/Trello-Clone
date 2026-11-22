@@ -17,7 +17,11 @@ const Activity = require('./Activity');
 User.hasMany(Workspace, { foreignKey: 'ownerId', as: 'ownedWorkspaces' });
 Workspace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 
-Workspace.belongsToMany(User, { through: WorkspaceMember, foreignKey: 'workspaceId', as: 'members' });
+Workspace.belongsToMany(User, {
+    through: WorkspaceMember,
+    foreignKey: 'workspaceId',
+    as: 'members',
+});
 User.belongsToMany(Workspace, { through: WorkspaceMember, foreignKey: 'userId', as: 'workspaces' });
 
 Workspace.hasMany(Board, { foreignKey: 'workspaceId', as: 'boards' });
@@ -60,19 +64,19 @@ Board.hasMany(Activity, { foreignKey: 'boardId', as: 'activities' });
 Activity.belongsTo(Board, { foreignKey: 'boardId', as: 'board' });
 
 module.exports = {
-  sequelize,
-  User,
-  Workspace,
-  WorkspaceMember,
-  Board,
-  BoardMember,
-  List,
-  Card,
-  CardMember,
-  Label,
-  CardLabel,
-  Checklist,
-  ChecklistItem,
-  Comment,
-  Activity
+    sequelize,
+    User,
+    Workspace,
+    WorkspaceMember,
+    Board,
+    BoardMember,
+    List,
+    Card,
+    CardMember,
+    Label,
+    CardLabel,
+    Checklist,
+    ChecklistItem,
+    Comment,
+    Activity,
 };

@@ -1,8 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  getCard, createCard, updateCard, moveCard, deleteCard,
-  addMember, removeMember, addLabel, removeLabel 
+const {
+    getCard,
+    createCard,
+    updateCard,
+    moveCard,
+    deleteCard,
+    addMember,
+    removeMember,
+    addLabel,
+    removeLabel,
 } = require('../controllers/cardController');
 const { authenticate } = require('../middleware/auth');
 
