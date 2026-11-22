@@ -4,63 +4,63 @@ import { io } from 'socket.io-client';
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
-  const [socket, setSocket] = useState(null);
-  const [connected, setConnected] = useState(false);
+    const [socket, setSocket] = useState(null);
+    const [connected, setConnected] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    
-    if (token) {
-      const newSocket = io(window.location.origin, {
-        auth: { token },
-        transports: ['websocket', 'polling']
-      });
+    useEffect(() => {
+        const token = localStorage.getItem('token');
 
-      newSocket.on('connect', () => {
-        console.log('Socket connected');
-        setConnected(true);
-      });
+        if (token) {
+            const newSocket = io(window.location.origin, {
+                auth: { token },
+                transports: ['websocket', 'polling'],
+            });
 
-      newSocket.on('disconnect', () => {
-        console.log('Socket disconnected');
-        setConnected(false);
-      });
+            newSocket.on('connect', () => {
+                console.log('Socket connected');
+                setConnected(true);
+            });
 
-      newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-      });
+            newSocket.on('disconnect', () => {
+                console.log('Socket disconnected');
+                setConnected(false);
+            });
 
-      setSocket(newSocket);
+            newSocket.on('connect_error', (error) => {
+                console.error('Socket connection error:', error);
+            });
 
-      return () => {
-        newSocket.close();
-      };
-    }
-  }, []);
+            setSocket(newSocket);
 
-  const joinBoard = (boardId) => {
-    if (socket) {
-      socket.emit('join-board', boardId);
-    }
-  };
+            return () => {
+                newSocket.close();
+            };
+        }
+    }, []);
 
-  const leaveBoard = (boardId) => {
-    if (socket) {
-      socket.emit('leave-board', boardId);
-    }
-  };
+    const joinBoard = (boardId) => {
+        if (socket) {
+            socket.emit('join-board', boardId);
+        }
+    };
 
-  return (
-    <SocketContext.Provider value={{ socket, connected, joinBoard, leaveBoard }}>
-      {children}
-    </SocketContext.Provider>
-  );
+    const leaveBoard = (boardId) => {
+        if (socket) {
+            socket.emit('leave-board', boardId);
+        }
+    };
+
+    return (
+        <SocketContext.Provider value={{ socket, connected, joinBoard, leaveBoard }}>
+            {children}
+        </SocketContext.Provider>
+    );
 }
 
 export function useSocket() {
-  const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error('useSocket must be used within a SocketProvider');
-  }
-  return context;
+    const context = useContext(SocketContext);
+    if (!context) {
+        throw new Error('useSocket must be used within a SocketProvider');
+    }
+    return context;
 }

@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getWorkspaces, getWorkspace, createWorkspace, updateWorkspace, deleteWorkspace } = require('../controllers/workspaceController');
+const {
+    getWorkspaces,
+    getWorkspace,
+    createWorkspace,
+    updateWorkspace,
+    deleteWorkspace,
+} = require('../controllers/workspaceController');
 const { authenticate } = require('../middleware/auth');
 
 router.use(authenticate);

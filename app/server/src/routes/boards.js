@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getBoards, getBoard, createBoard, updateBoard, deleteBoard } = require('../controllers/boardController');
+const {
+    getBoards,
+    getBoard,
+    createBoard,
+    updateBoard,
+    deleteBoard,
+} = require('../controllers/boardController');
 const { authenticate } = require('../middleware/auth');
 
 router.use(authenticate);
