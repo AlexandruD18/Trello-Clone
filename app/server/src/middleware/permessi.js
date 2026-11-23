@@ -15,6 +15,8 @@ const {
 const LIVELLI = { viewer: 1, member: 2, admin: 3 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const isUuid = (valore) => typeof valore === 'string' && UUID.test(valore);
+
 const haRuolo = (ruolo, minimo) => Boolean(ruolo) && LIVELLI[ruolo] >= LIVELLI[minimo];
 
 // Ruolo dell'utente su un workspace, o null se non ne fa parte.
@@ -87,7 +89,7 @@ const autorizza =
     async (req, res, next) => {
         try {
             const id = leggiId(req);
-            if (typeof id !== 'string' || !UUID.test(id)) {
+            if (!isUuid(id)) {
                 return res.status(400).json({ error: 'Identificativo mancante o non valido' });
             }
 
@@ -127,6 +129,7 @@ const daCorpo = (nome) => (req) => req.body && req.body[nome];
 const daQuery = (nome) => (req) => req.query[nome];
 
 module.exports = {
+    isUuid,
     autorizza,
     daParametro,
     daCorpo,
