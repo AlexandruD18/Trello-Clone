@@ -13,13 +13,11 @@ describe('autenticazione', () => {
 
     it('rifiuta una seconda registrazione con la stessa email', async () => {
         const utente = await registraUtente('Bruno');
-        const res = await api()
-            .post('/api/auth/register')
-            .send({
-                email: utente.email.toUpperCase(),
-                password: 'altra-password-1',
-                name: 'Bruno',
-            });
+        const res = await api().post('/api/auth/register').send({
+            email: utente.email.toUpperCase(),
+            password: 'altra-password-1',
+            name: 'Bruno',
+        });
 
         expect(res.status).toBe(409);
     });
