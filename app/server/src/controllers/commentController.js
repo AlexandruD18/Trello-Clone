@@ -77,7 +77,8 @@ const deleteComment = async (req, res) => {
             return res.status(404).json({ error: 'Comment not found' });
         }
 
-        if (comment.authorId !== req.userId) {
+        // Un commento lo cancella chi l'ha scritto oppure un admin della board.
+        if (comment.authorId !== req.userId && req.boardRole !== 'admin') {
             return res.status(403).json({ error: 'Not authorized to delete this comment' });
         }
 

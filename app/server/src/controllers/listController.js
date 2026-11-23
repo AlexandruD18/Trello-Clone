@@ -66,6 +66,10 @@ const moveList = async (req, res) => {
     try {
         const { position } = req.body;
 
+        if (typeof position !== 'number' || !Number.isFinite(position)) {
+            return res.status(400).json({ error: 'Posizione non valida' });
+        }
+
         const list = await List.findByPk(req.params.id);
 
         if (!list) {
