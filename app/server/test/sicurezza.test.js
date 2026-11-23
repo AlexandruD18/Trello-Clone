@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import request from 'supertest';
-import { api, registraUtente } from './helpers.js';
+import { api, registraUtente, PASSWORD, SBAGLIATA } from './helpers.js';
 
 const require = createRequire(import.meta.url);
 const { createApp } = require('../src/app');
@@ -31,9 +31,9 @@ describe('validazione della registrazione', () => {
     const registra = (dati) => api().post('/api/auth/register').send(dati);
 
     it.each([
-        ['email non valida', { email: 'non-una-mail', password: 'password-lunga', name: 'Gino' }],
+        ['email non valida', { email: 'non-una-mail', password: PASSWORD, name: 'Gino' }],
         ['password corta', { email: 'gino@esempio.it', password: 'corta', name: 'Gino' }],
-        ['nome vuoto', { email: 'gino@esempio.it', password: 'password-lunga', name: '   ' }],
+        ['nome vuoto', { email: 'gino@esempio.it', password: PASSWORD, name: '   ' }],
         ['campi non testuali', { email: ['x'], password: 12345678, name: {} }],
         [
             'password oltre 72 byte',
@@ -48,7 +48,7 @@ describe('validazione della registrazione', () => {
     it("accetta l'email con maiuscole e spazi e la salva normalizzata", async () => {
         const res = await registra({
             email: '  Ilaria.Rossi@Esempio.IT ',
-            password: 'password-lunga',
+            password: PASSWORD,
             name: 'Ilaria',
         });
         expect(res.status).toBe(201);
@@ -56,7 +56,7 @@ describe('validazione della registrazione', () => {
 
         const login = await api()
             .post('/api/auth/login')
-            .send({ email: 'ILARIA.ROSSI@esempio.it', password: 'password-lunga' });
+            .send({ email: 'ILARIA.ROSSI@esempio.it', password: PASSWORD });
         expect(login.status).toBe(200);
     });
 });
@@ -67,7 +67,7 @@ describe('protezioni HTTP', () => {
         const tenta = () =>
             request(app)
                 .post('/api/auth/login')
-                .send({ email: 'x@esempio.it', password: 'sbagliata' });
+                .send({ email: 'x@esempio.it', password: SBAGLIATA });
 
         expect((await tenta()).status).toBe(401);
         expect((await tenta()).status).toBe(401);
@@ -82,7 +82,7 @@ describe('protezioni HTTP', () => {
             request(app)
                 .post('/api/auth/login')
                 .set('X-Forwarded-For', ip)
-                .send({ email: 'y@esempio.it', password: 'sbagliata' });
+                .send({ email: 'y@esempio.it', password: SBAGLIATA });
 
         await tenta('10.0.0.1');
         await tenta('10.0.0.2');
@@ -96,12 +96,12 @@ describe('protezioni HTTP', () => {
             request(app).post('/api/auth/login').send({ email, password });
 
         for (let i = 0; i < 4; i += 1) {
-            expect((await login(utente.email, 'password-sicura-1')).status).toBe(200);
+            expect((await login(utente.email, PASSWORD)).status).toBe(200);
         }
-        await login('z@esempio.it', 'sbagliata');
-        await login('z@esempio.it', 'sbagliata');
-        expect((await login('z@esempio.it', 'sbagliata')).status).toBe(429);
-        expect((await login(utente.email, 'password-sicura-1')).status).toBe(200);
+        await login('z@esempio.it', SBAGLIATA);
+        await login('z@esempio.it', SBAGLIATA);
+        expect((await login('z@esempio.it', SBAGLIATA)).status).toBe(429);
+        expect((await login(utente.email, PASSWORD)).status).toBe(200);
     });
 
     it('blocca chi prova una password su tanti account dallo stesso IP', async () => {
@@ -110,7 +110,7 @@ describe('protezioni HTTP', () => {
         for (let i = 0; i < 11; i += 1) {
             const res = await request(app)
                 .post('/api/auth/login')
-                .send({ email: `vittima${i}@esempio.it`, password: 'Primavera2026' });
+                .send({ email: `vittima${i}@esempio.it`, password: SBAGLIATA });
             stati.push(res.status);
         }
         // Tetto per IP = 5 × 2 = 10 tentativi falliti.
