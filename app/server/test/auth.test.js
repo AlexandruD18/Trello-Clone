@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { api, registraUtente } from './helpers.js';
+import { api, registraUtente, PASSWORD, SBAGLIATA, nuovaPassword } from './helpers.js';
 
 describe('autenticazione', () => {
     it('registra un utente e crea il suo workspace personale', async () => {
@@ -15,7 +15,7 @@ describe('autenticazione', () => {
         const utente = await registraUtente('Bruno');
         const res = await api().post('/api/auth/register').send({
             email: utente.email.toUpperCase(),
-            password: 'altra-password-1',
+            password: nuovaPassword(),
             name: 'Bruno',
         });
 
@@ -26,7 +26,7 @@ describe('autenticazione', () => {
         const utente = await registraUtente('Carla');
         const res = await api()
             .post('/api/auth/login')
-            .send({ email: utente.email, password: 'password-sicura-1' });
+            .send({ email: utente.email, password: PASSWORD });
 
         expect(res.status).toBe(200);
         expect(res.body.token).toBeTypeOf('string');
@@ -36,7 +36,7 @@ describe('autenticazione', () => {
         const utente = await registraUtente('Dario');
         const res = await api()
             .post('/api/auth/login')
-            .send({ email: utente.email, password: 'sbagliata' });
+            .send({ email: utente.email, password: SBAGLIATA });
 
         expect(res.status).toBe(401);
     });

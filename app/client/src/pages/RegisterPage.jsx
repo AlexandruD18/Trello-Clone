@@ -91,7 +91,7 @@ function RegisterPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="input pl-10"
                                 placeholder="Create a password"
-                                minLength={6}
+                                minLength={8}
                                 required
                             />
                         </div>

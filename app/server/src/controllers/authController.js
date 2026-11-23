@@ -46,6 +46,10 @@ const register = async (req, res) => {
             workspace,
         });
     } catch (error) {
+        // Due registrazioni simultanee con la stessa email: vince la prima.
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ error: 'Esiste già un account con questa email' });
+        }
         console.error('Register error:', error);
         res.status(500).json({ error: 'Registrazione non riuscita' });
     }
