@@ -79,19 +79,29 @@ const createApp = ({
         legacyHeaders: false,
         message: { error: 'Troppi tentativi. Riprova tra qualche minuto.' },
     };
-    // Login: contano solo i tentativi falliti, per coppia IP + email. Così tante
-    // persone dietro lo stesso NAT (un'aula, un ufficio) non si bloccano a vicenda.
-    const limiteLogin = rateLimit({
+    // Login, due livelli che contano solo i tentativi falliti:
+    // - per IP + email: blocca chi prova tante password su un account;
+    // - per IP, con un tetto più alto: blocca chi prova poche password su tanti
+    //   account, senza fermare tante persone dietro lo stesso NAT (aula, ufficio).
+    const limiteLoginPerIp = rateLimit({
+        ...opzioniLimite,
+        limit: authRateLimit * 5,
+        skipSuccessfulRequests: true,
+    });
+    const limiteLoginPerAccount = rateLimit({
         ...opzioniLimite,
         skipSuccessfulRequests: true,
         keyGenerator: (req) => {
+            // Email tagliata a 255 caratteri: chiavi lunghe riempirebbero la memoria.
             const email =
-                typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+                typeof req.body?.email === 'string'
+                    ? req.body.email.trim().toLowerCase().slice(0, 255)
+                    : '';
             return `${ipKeyGenerator(req.ip)}|${email}`;
         },
     });
     const limiteRegistrazione = rateLimit(opzioniLimite);
-    app.use('/api/auth/login', limiteLogin);
+    app.use('/api/auth/login', limiteLoginPerIp, limiteLoginPerAccount);
     app.use('/api/auth/register', limiteRegistrazione);
 
     app.use('/api/auth', authRoutes);

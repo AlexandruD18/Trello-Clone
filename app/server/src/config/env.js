@@ -24,6 +24,12 @@ const numero = (valore, predefinito) => {
 const leggiTrustProxy = (valore) => {
     if (!valore || valore === 'false') return false;
     if (/^\d+$/.test(valore)) return Number(valore);
+    if (valore === 'true') {
+        throw new Error(
+            'TRUST_PROXY=true non è ammesso: fiderebbe di qualsiasi X-Forwarded-For. ' +
+                'Usa il numero di proxy davanti al server (es. 1) oppure i loro IP.'
+        );
+    }
     return valore;
 };
 

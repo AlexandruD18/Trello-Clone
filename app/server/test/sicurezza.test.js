@@ -104,6 +104,20 @@ describe('protezioni HTTP', () => {
         expect((await login(utente.email, 'password-sicura-1')).status).toBe(200);
     });
 
+    it('blocca chi prova una password su tanti account dallo stesso IP', async () => {
+        const { app } = createApp({ authRateLimit: 2 });
+        const stati = [];
+        for (let i = 0; i < 11; i += 1) {
+            const res = await request(app)
+                .post('/api/auth/login')
+                .send({ email: `vittima${i}@esempio.it`, password: 'Primavera2026' });
+            stati.push(res.status);
+        }
+        // Tetto per IP = 5 × 2 = 10 tentativi falliti.
+        expect(stati.slice(0, 10).every((s) => s === 401)).toBe(true);
+        expect(stati[10]).toBe(429);
+    });
+
     it('attiva HSTS e upgrade-insecure-requests solo in HTTPS', async () => {
         const http = await request(createApp({ https: false }).app).get('/api/health');
         expect(http.headers['strict-transport-security']).toBeUndefined();
@@ -138,6 +152,16 @@ describe('protezioni HTTP', () => {
 });
 
 describe('configurazione', () => {
+    it('rifiuta TRUST_PROXY=true con un messaggio chiaro', () => {
+        const esito = spawnSync(process.execPath, ['-e', "require('./src/config/env')"], {
+            cwd: new URL('..', import.meta.url),
+            env: { ...process.env, TRUST_PROXY: 'true' },
+            encoding: 'utf8',
+        });
+        expect(esito.status).not.toBe(0);
+        expect(esito.stderr).toContain('TRUST_PROXY=true non è ammesso');
+    });
+
     it.each([
         ['assente', ''],
         ['troppo corto', 'corto'],

@@ -97,3 +97,56 @@ Revisore: agente di sicurezza indipendente
 Permessi su board, liste e card (#15). Socket che ritrasmette gli eventi e `join-board` senza controlli (#16). `sync({ alter: true })` e CORS fissato nel codice (#17). Token in `localStorage` (#20).
 
 Esito: da correggere
+
+## Seconda verifica (23/11/2026)
+
+Ho controllato il commit `6f12ed7` (`git diff 0fdb351..6f12ed7 -- app`) e ho rilanciato `npm test`: 22 test su 22 verdi. Ho anche ripetuto lo script supertest della prima verifica, adattato alle correzioni.
+
+### Stato dei punti della prima verifica
+
+| Punto | Stato | Come l'ho verificato |
+| --- | --- | --- |
+| 1. Bypass con `X-Forwarded-For` | Risolto | `TRUST_PROXY` vale `false` se non è impostato. Sei login con XFF diversi e la stessa email: il terzo riceve 429. C'è anche un test dedicato. |
+| 2. `upgrade-insecure-requests` e HSTS in HTTP | Risolto | Con `HTTPS` non impostato la CSP non contiene più `upgrade-insecure-requests` e manca `Strict-Transport-Security`. Il test copre i due casi. |
+| 3. Contatore unico che contava anche i login riusciti | Risolto, ma la correzione apre il punto 8 | `skipSuccessfulRequests` funziona e login e registrazione hanno limitatori separati. Varianti di maiuscole e spazi nell'email finiscono nello stesso contatore. |
+| 4. 500 sulla registrazione doppia | Risolto | `SequelizeUniqueConstraintError` restituisce 409. |
+| 5. `minLength` del client | Risolto | Il client ora chiede 8 caratteri. |
+| 6. CSP troppo larga | Risolto | Ora `connect-src 'self'` e `img-src 'self' data:`. Il client non carica immagini esterne e il socket usa la stessa origine. |
+| 7. Errori del body parser in 500 | Risolto | Con `Content-Encoding: foo` la risposta è 415 `{"error":"Richiesta non valida"}`, senza stack nel log. |
+
+### Nuovi problemi
+
+#### 8. Da correggere: dallo stesso IP si provano password su email diverse senza limite
+
+- **Dove:** `app/server/src/app.js:84-92` (`keyGenerator` del limitatore di login).
+- **Scenario:** la chiave è solo `IP|email`. Un attaccante con un solo IP prova una password comune su migliaia di email (password spraying o credential stuffing), e ogni email riparte da zero. Prova: limite a 2, otto login falliti dallo stesso IP con otto email diverse, nessun 429. Prima di questa correzione lo stesso IP si fermava a 20 tentativi in totale, quindi su questo attacco la protezione è peggiorata. Il consiglio "IP + email" del punto 3 era incompleto: andava aggiunto a un tetto per IP, non messo al suo posto.
+- **Correzione:** due limitatori di login in fila, tutti e due con `skipSuccessfulRequests: true`:
+
+    ```js
+    const limiteLoginIp = rateLimit({
+        ...opzioniLimite,
+        limit: authRateLimit * 5, // per esempio 100 fallimenti per IP ogni 15 minuti
+        skipSuccessfulRequests: true,
+    });
+    app.use('/api/auth/login', limiteLoginIp, limiteLogin);
+    ```
+
+    Serve anche un test: N email diverse dallo stesso IP devono portare a un 429.
+
+#### 9. Da correggere: chiavi illimitate nella memoria del rate limit
+
+- **Dove:** `app/server/src/app.js:87-90`.
+- **Scenario:** nella chiave finisce l'email intera presa dal corpo, che può arrivare quasi a 100kb perché `validaLogin` non ne limita la lunghezza. Il MemoryStore tiene ogni chiave per 15 minuti. Senza un tetto per IP (punto 8), un client che manda richieste con email lunghissime e sempre diverse fa crescere la memoria del processo: circa 10.000 richieste da 100kb fanno 1 GB, che è la soglia `max_memory_restart` di PM2. Il risultato è un riavvio forzato del server, cioè un DoS.
+- **Correzione:** limitare la parte email della chiave, per esempio `email.slice(0, 255)` oppure un hash SHA-256 dell'email normalizzata. Il tetto per IP del punto 8 limita già il numero di chiavi che un singolo IP può creare.
+
+#### 10. Suggerimento: `TRUST_PROXY=true` blocca l'avvio con un messaggio poco chiaro
+
+- **Dove:** `app/server/src/config/env.js:24-28`.
+- **Scenario:** il valore `'true'` viene passato così com'è a Express, che lo tratta come indirizzo IP e lancia `invalid IP address: true` alla creazione dell'app. Fermarsi va bene, perché `true` sarebbe la scelta più pericolosa, ma il messaggio non spiega cosa fare.
+- **Correzione:** in `leggiTrustProxy`, se il valore è `'true'`, lanciare un errore esplicito ("usa il numero di proxy, per esempio 1, oppure un elenco di IP").
+
+### Nessuna regressione nel resto
+
+Il resto del diff coincide con quello della prima verifica: password escluse, JWT, validazione, transazione e client.
+
+Esito: da correggere (punti aperti: 8 e 9)
