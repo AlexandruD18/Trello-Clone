@@ -150,3 +150,17 @@ Ho controllato il commit `6f12ed7` (`git diff 0fdb351..6f12ed7 -- app`) e ho ril
 Il resto del diff coincide con quello della prima verifica: password escluse, JWT, validazione, transazione e client.
 
 Esito: da correggere (punti aperti: 8 e 9)
+
+## Terza verifica (23/11/2026)
+
+Ho controllato il commit `db26c51` (`git show HEAD`) e ho rilanciato `npm test`: 24 test su 24 verdi. Ho ripetuto lo script supertest della seconda verifica.
+
+| Punto | Stato | Come l'ho verificato |
+| --- | --- | --- |
+| 8. Password spraying | Risolto | `limiteLoginPerIp` (`authRateLimit * 5`, conta solo i fallimenti) viene montato prima di quello per IP + email. Con limite 2, dallo stesso IP l'undicesimo login fallito riceve 429 anche se ogni volta l'email è diversa. Il test nuovo lo copre. |
+| 9. Memoria del rate limit | Risolto | L'email nella chiave è tagliata a 255 caratteri. Quando il tetto per IP risponde 429, il secondo limitatore non viene eseguito e non crea chiavi nuove. Così ogni IP occupa al massimo circa `authRateLimit * 5` chiavi da 255 caratteri ogni 15 minuti. |
+| 10. `TRUST_PROXY=true` | Risolto | `config/env.js` si ferma con un messaggio esplicito, e c'è un test. Altre varianti come `TRUE` arrivano a Express come stringa e bloccano comunque l'avvio (`invalid IP address`), quindi non si apre mai il bypass. |
+
+Non ho trovato regressioni. I login riusciti non consumano nessuno dei due contatori. Un tentativo che il limitatore per account blocca con 429 conta come fallimento anche per il tetto per IP, e va bene così. Bypass con `X-Forwarded-For`, varianti di maiuscole nell'email, HSTS e CSP danno gli stessi risultati della seconda verifica.
+
+Esito: approvata
