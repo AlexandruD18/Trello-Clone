@@ -27,7 +27,7 @@ module.exports = {
             repo: 'https://github.com/AlexandruD18/Trello-Clone.git',
             path: process.env.DEPLOY_PATH || '/home/teamtrello/trello-clone',
             'post-deploy':
-                'npm ci && npm run build && npm prune --omit=dev && pm2 reload ecosystem.config.js --env production',
+                'npm ci && npm run build && npm run db:migrate && npm prune --omit=dev && pm2 reload ecosystem.config.js --env production',
         },
     },
 };

@@ -1,12 +1,12 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const { Sequelize } = require('sequelize');
 
 const host = process.env.DB_HOST || '127.0.0.1';
-const port = Number(process.env.DB_PORT) || 3307;
+const port = Number(process.env.DB_PORT) || 3306;
 
 const sequelize = new Sequelize(
     process.env.DB_NAME || 'trello',
-    process.env.DB_USER || 'teamtrello',
+    process.env.DB_USER || 'trello',
     process.env.DB_PASSWORD,
     {
         host,

@@ -23,33 +23,23 @@ const createApp = ({
     authRateLimit = config.authRateLimit,
     trustProxy = config.trustProxy,
     https = config.https,
+    corsOrigins = config.corsOrigins,
 } = {}) => {
     const app = express();
     // Fidarsi di X-Forwarded-For solo se davanti c'è davvero un proxy.
     app.set('trust proxy', trustProxy);
     const server = http.createServer(app);
 
-    const io = new Server(server, {
-        cors: {
-            origin: [
-                'http://localhost:5000',
-                'http://localhost:8181',
-                'http://0.0.0.0:5000',
-                'http://localhost:5173',
-            ],
-            methods: ['GET', 'POST', 'PUT', 'DELETE'],
-            credentials: true,
-        },
-    });
+    // CORS solo per le origini esterne dichiarate in CORS_ORIGINS; senza, vale la
+    // stessa origine (produzione e proxy di Vite in sviluppo).
+    const opzioniCors = corsOrigins.length > 0 ? { origin: corsOrigins, credentials: true } : null;
 
+    const io = new Server(server, opzioniCors ? { cors: opzioniCors } : {});
     setupSocketHandlers(io);
 
-    app.use(
-        cors({
-            origin: ['http://localhost:5000', 'http://localhost:8181', 'http://0.0.0.0:5000'],
-            credentials: true,
-        })
-    );
+    if (opzioniCors) {
+        app.use(cors(opzioniCors));
+    }
 
     app.use(
         helmet({
