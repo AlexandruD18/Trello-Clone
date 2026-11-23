@@ -76,6 +76,44 @@ describe('protezioni HTTP', () => {
         expect(terzo.body.error).toBeTypeOf('string');
     });
 
+    it('non si aggira cambiando X-Forwarded-For quando non c’è un proxy', async () => {
+        const { app } = createApp({ authRateLimit: 2, trustProxy: false });
+        const tenta = (ip) =>
+            request(app)
+                .post('/api/auth/login')
+                .set('X-Forwarded-For', ip)
+                .send({ email: 'y@esempio.it', password: 'sbagliata' });
+
+        await tenta('10.0.0.1');
+        await tenta('10.0.0.2');
+        expect((await tenta('10.0.0.3')).status).toBe(429);
+    });
+
+    it('non conta i login riusciti e tiene separate le email', async () => {
+        const utente = await registraUtente('Lucia');
+        const { app } = createApp({ authRateLimit: 2 });
+        const login = (email, password) =>
+            request(app).post('/api/auth/login').send({ email, password });
+
+        for (let i = 0; i < 4; i += 1) {
+            expect((await login(utente.email, 'password-sicura-1')).status).toBe(200);
+        }
+        await login('z@esempio.it', 'sbagliata');
+        await login('z@esempio.it', 'sbagliata');
+        expect((await login('z@esempio.it', 'sbagliata')).status).toBe(429);
+        expect((await login(utente.email, 'password-sicura-1')).status).toBe(200);
+    });
+
+    it('attiva HSTS e upgrade-insecure-requests solo in HTTPS', async () => {
+        const http = await request(createApp({ https: false }).app).get('/api/health');
+        expect(http.headers['strict-transport-security']).toBeUndefined();
+        expect(http.headers['content-security-policy']).not.toContain('upgrade-insecure-requests');
+
+        const https = await request(createApp({ https: true }).app).get('/api/health');
+        expect(https.headers['strict-transport-security']).toBeDefined();
+        expect(https.headers['content-security-policy']).toContain('upgrade-insecure-requests');
+    });
+
     it('imposta le intestazioni di sicurezza', async () => {
         const res = await api().get('/api/health');
         expect(res.headers['x-content-type-options']).toBe('nosniff');
