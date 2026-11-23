@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import request from 'supertest';
-import { api, registraUtente } from './helpers.js';
+import { api, registraUtente, PASSWORD, SBAGLIATA } from './helpers.js';
 
 const require = createRequire(import.meta.url);
 const { createApp } = require('../src/app');
@@ -31,9 +31,9 @@ describe('validazione della registrazione', () => {
     const registra = (dati) => api().post('/api/auth/register').send(dati);
 
     it.each([
-        ['email non valida', { email: 'non-una-mail', password: 'password-lunga', name: 'Gino' }],
+        ['email non valida', { email: 'non-una-mail', password: PASSWORD, name: 'Gino' }],
         ['password corta', { email: 'gino@esempio.it', password: 'corta', name: 'Gino' }],
-        ['nome vuoto', { email: 'gino@esempio.it', password: 'password-lunga', name: '   ' }],
+        ['nome vuoto', { email: 'gino@esempio.it', password: PASSWORD, name: '   ' }],
         ['campi non testuali', { email: ['x'], password: 12345678, name: {} }],
         [
             'password oltre 72 byte',
@@ -48,7 +48,7 @@ describe('validazione della registrazione', () => {
     it("accetta l'email con maiuscole e spazi e la salva normalizzata", async () => {
         const res = await registra({
             email: '  Ilaria.Rossi@Esempio.IT ',
-            password: 'password-lunga',
+            password: PASSWORD,
             name: 'Ilaria',
         });
         expect(res.status).toBe(201);
@@ -56,7 +56,7 @@ describe('validazione della registrazione', () => {
 
         const login = await api()
             .post('/api/auth/login')
-            .send({ email: 'ILARIA.ROSSI@esempio.it', password: 'password-lunga' });
+            .send({ email: 'ILARIA.ROSSI@esempio.it', password: PASSWORD });
         expect(login.status).toBe(200);
     });
 });
@@ -67,13 +67,65 @@ describe('protezioni HTTP', () => {
         const tenta = () =>
             request(app)
                 .post('/api/auth/login')
-                .send({ email: 'x@esempio.it', password: 'sbagliata' });
+                .send({ email: 'x@esempio.it', password: SBAGLIATA });
 
         expect((await tenta()).status).toBe(401);
         expect((await tenta()).status).toBe(401);
         const terzo = await tenta();
         expect(terzo.status).toBe(429);
         expect(terzo.body.error).toBeTypeOf('string');
+    });
+
+    it('non si aggira cambiando X-Forwarded-For quando non c’è un proxy', async () => {
+        const { app } = createApp({ authRateLimit: 2, trustProxy: false });
+        const tenta = (ip) =>
+            request(app)
+                .post('/api/auth/login')
+                .set('X-Forwarded-For', ip)
+                .send({ email: 'y@esempio.it', password: SBAGLIATA });
+
+        await tenta('10.0.0.1');
+        await tenta('10.0.0.2');
+        expect((await tenta('10.0.0.3')).status).toBe(429);
+    });
+
+    it('non conta i login riusciti e tiene separate le email', async () => {
+        const utente = await registraUtente('Lucia');
+        const { app } = createApp({ authRateLimit: 2 });
+        const login = (email, password) =>
+            request(app).post('/api/auth/login').send({ email, password });
+
+        for (let i = 0; i < 4; i += 1) {
+            expect((await login(utente.email, PASSWORD)).status).toBe(200);
+        }
+        await login('z@esempio.it', SBAGLIATA);
+        await login('z@esempio.it', SBAGLIATA);
+        expect((await login('z@esempio.it', SBAGLIATA)).status).toBe(429);
+        expect((await login(utente.email, PASSWORD)).status).toBe(200);
+    });
+
+    it('blocca chi prova una password su tanti account dallo stesso IP', async () => {
+        const { app } = createApp({ authRateLimit: 2 });
+        const stati = [];
+        for (let i = 0; i < 11; i += 1) {
+            const res = await request(app)
+                .post('/api/auth/login')
+                .send({ email: `vittima${i}@esempio.it`, password: SBAGLIATA });
+            stati.push(res.status);
+        }
+        // Tetto per IP = 5 × 2 = 10 tentativi falliti.
+        expect(stati.slice(0, 10).every((s) => s === 401)).toBe(true);
+        expect(stati[10]).toBe(429);
+    });
+
+    it('attiva HSTS e upgrade-insecure-requests solo in HTTPS', async () => {
+        const http = await request(createApp({ https: false }).app).get('/api/health');
+        expect(http.headers['strict-transport-security']).toBeUndefined();
+        expect(http.headers['content-security-policy']).not.toContain('upgrade-insecure-requests');
+
+        const https = await request(createApp({ https: true }).app).get('/api/health');
+        expect(https.headers['strict-transport-security']).toBeDefined();
+        expect(https.headers['content-security-policy']).toContain('upgrade-insecure-requests');
     });
 
     it('imposta le intestazioni di sicurezza', async () => {
@@ -100,6 +152,16 @@ describe('protezioni HTTP', () => {
 });
 
 describe('configurazione', () => {
+    it('rifiuta TRUST_PROXY=true con un messaggio chiaro', () => {
+        const esito = spawnSync(process.execPath, ['-e', "require('./src/config/env')"], {
+            cwd: new URL('..', import.meta.url),
+            env: { ...process.env, TRUST_PROXY: 'true' },
+            encoding: 'utf8',
+        });
+        expect(esito.status).not.toBe(0);
+        expect(esito.stderr).toContain('TRUST_PROXY=true non è ammesso');
+    });
+
     it.each([
         ['assente', ''],
         ['troppo corto', 'corto'],
