@@ -9,6 +9,7 @@ const {
     ChecklistItem,
     Comment,
 } = require('../models');
+const { ruoloBoard, isUuid } = require('../middleware/permessi');
 
 const getCard = async (req, res) => {
     try {
@@ -121,13 +122,28 @@ const moveCard = async (req, res) => {
     try {
         const { listId, position } = req.body;
 
+        if (typeof position !== 'number' || !Number.isFinite(position)) {
+            return res.status(400).json({ error: 'Posizione non valida' });
+        }
+        if (listId !== undefined && !isUuid(listId)) {
+            return res.status(400).json({ error: 'Lista di destinazione non valida' });
+        }
+
         const card = await Card.findByPk(req.params.id);
 
         if (!card) {
             return res.status(404).json({ error: 'Card not found' });
         }
 
-        await card.update({ listId, position });
+        // La lista di destinazione deve stare nella stessa board della card.
+        const destinazione = await List.findByPk(listId || card.listId);
+        if (!destinazione || destinazione.boardId !== req.board.id) {
+            return res
+                .status(400)
+                .json({ error: 'La lista di destinazione non è in questa board' });
+        }
+
+        await card.update({ listId: destinazione.id, position });
 
         const fullCard = await Card.findByPk(card.id, {
             include: [
@@ -170,6 +186,11 @@ const addMember = async (req, res) => {
     try {
         const { userId } = req.body;
 
+        // Si possono assegnare alla card solo persone che hanno accesso alla board.
+        if (typeof userId !== 'string' || !(await ruoloBoard(userId, req.board))) {
+            return res.status(400).json({ error: 'Questa persona non fa parte della board' });
+        }
+
         await CardMember.findOrCreate({
             where: { cardId: req.params.id, userId },
         });
@@ -211,6 +232,11 @@ const removeMember = async (req, res) => {
 const addLabel = async (req, res) => {
     try {
         const { labelId } = req.body;
+
+        const label = typeof labelId === 'string' ? await Label.findByPk(labelId) : null;
+        if (!label || label.boardId !== req.board.id) {
+            return res.status(400).json({ error: "L'etichetta non appartiene a questa board" });
+        }
 
         await CardLabel.findOrCreate({
             where: { cardId: req.params.id, labelId },

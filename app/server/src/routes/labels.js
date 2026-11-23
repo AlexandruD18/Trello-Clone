@@ -7,12 +7,13 @@ const {
     deleteLabel,
 } = require('../controllers/labelController');
 const { authenticate } = require('../middleware/auth');
+const { autorizza, daParametro, daCorpo, daQuery } = require('../middleware/permessi');
 
 router.use(authenticate);
 
-router.get('/', getLabels);
-router.post('/', createLabel);
-router.put('/:id', updateLabel);
-router.delete('/:id', deleteLabel);
+router.get('/', autorizza('board', daQuery('boardId')), getLabels);
+router.post('/', autorizza('board', daCorpo('boardId'), 'member'), createLabel);
+router.put('/:id', autorizza('label', daParametro(), 'member'), updateLabel);
+router.delete('/:id', autorizza('label', daParametro(), 'member'), deleteLabel);
 
 module.exports = router;
