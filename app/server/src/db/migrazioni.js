@@ -1,45 +1,57 @@
 const fs = require('fs');
 const path = require('path');
+const mysql = require('mysql2/promise');
 const { Umzug, SequelizeStorage } = require('umzug');
 const sequelize = require('../config/database');
 
 const CARTELLA = path.resolve(__dirname, '../../migrations');
+const NOME_LOCK = 'trello_clone_migrazioni';
 
-// Divide un file SQL in istruzioni singole (mysql2 non ne accetta più di una per query).
-const istruzioni = (sql) =>
-    sql
-        .split(/;\s*(?:\r?\n|$)/)
-        .map((riga) =>
-            riga
-                .split('\n')
-                .filter((l) => !l.trim().startsWith('--'))
-                .join('\n')
-                .trim()
-        )
-        .filter(Boolean);
-
-// SET FOREIGN_KEY_CHECKS vale per una sola connessione: la transazione tiene
-// tutte le istruzioni sulla stessa connessione del pool. In MySQL il DDL fa commit
-// da solo, quindi la transazione serve solo a questo, non ad annullare.
-const conUnaConnessione = (lavoro) =>
-    sequelize.transaction(async (transaction) => {
-        const q = (sql) => sequelize.query(sql, { transaction });
-        await q('SET FOREIGN_KEY_CHECKS = 0');
-        try {
-            await lavoro(q);
-        } finally {
-            await q('SET FOREIGN_KEY_CHECKS = 1');
-        }
-    });
-
-const eseguiSql = async (file) => {
-    const sql = fs.readFileSync(path.join(CARTELLA, file), 'utf8');
-    await conUnaConnessione(async (q) => {
-        for (const istruzione of istruzioni(sql)) {
-            await q(istruzione);
-        }
+// Le migrazioni girano su una connessione dedicata, separata dal pool:
+// - multipleStatements: il file SQL va al server così com'è, senza dividerlo a mano;
+// - SET FOREIGN_KEY_CHECKS vale per tutta la connessione e quindi per tutto il file.
+const apriConnessione = () => {
+    const { host, port, username, password, database } = sequelize.config;
+    return mysql.createConnection({
+        host,
+        port,
+        user: username,
+        password,
+        database,
+        multipleStatements: true,
     });
 };
+
+const conConnessione = async (lavoro) => {
+    const connessione = await apriConnessione();
+    try {
+        return await lavoro(connessione);
+    } finally {
+        await connessione.end();
+    }
+};
+
+// Esegue SQL con i controlli sulle chiavi esterne spenti (servono per creare o
+// eliminare tabelle in qualsiasi ordine) e li riaccende anche in caso di errore.
+const eseguiSenzaVincoli = (sql) =>
+    conConnessione(async (connessione) => {
+        await connessione.query('SET FOREIGN_KEY_CHECKS = 0');
+        try {
+            await connessione.query(sql);
+        } finally {
+            await connessione.query('SET FOREIGN_KEY_CHECKS = 1');
+        }
+    });
+
+const leggi = (file) => fs.readFileSync(path.join(CARTELLA, file), 'utf8');
+
+// Le migrazioni che partono da dati veri non si annullano in produzione:
+// annullare la 0001 vorrebbe dire cancellare tutte le tabelle.
+const IRREVERSIBILI = new Set(['0001-schema-iniziale']);
+const annullamentoConsentito = (nome) =>
+    !IRREVERSIBILI.has(nome) ||
+    process.env.NODE_ENV === 'test' ||
+    process.env.CONFERMA_CANCELLAZIONE_DATI === 'si';
 
 // Ogni migrazione è una coppia di file NNNN-nome.up.sql / NNNN-nome.down.sql.
 const umzug = new Umzug({
@@ -49,8 +61,16 @@ const umzug = new Umzug({
             const base = name.replace(/\.up\.sql$/, '');
             return {
                 name: base,
-                up: () => eseguiSql(`${base}.up.sql`),
-                down: () => eseguiSql(`${base}.down.sql`),
+                up: () => eseguiSenzaVincoli(leggi(`${base}.up.sql`)),
+                down: () => {
+                    if (!annullamentoConsentito(base)) {
+                        throw new Error(
+                            `La migrazione ${base} non si annulla: cancellerebbe tutti i dati. ` +
+                                'Se è davvero quello che vuoi, rilancia con CONFERMA_CANCELLAZIONE_DATI=si.'
+                        );
+                    }
+                    return eseguiSenzaVincoli(leggi(`${base}.down.sql`));
+                },
             };
         },
     },
@@ -58,14 +78,30 @@ const umzug = new Umzug({
     logger: process.env.NODE_ENV === 'test' ? undefined : console,
 });
 
-module.exports = { umzug, conUnaConnessione };
+// Lock di MySQL: due deploy lanciati insieme non eseguono le stesse migrazioni due volte.
+const conLock = (lavoro) =>
+    conConnessione(async (connessione) => {
+        const [[{ preso }]] = await connessione.query('SELECT GET_LOCK(?, 60) AS preso', [
+            NOME_LOCK,
+        ]);
+        if (preso !== 1) {
+            throw new Error('Un altro processo sta già eseguendo le migrazioni.');
+        }
+        try {
+            return await lavoro();
+        } finally {
+            await connessione.query('SELECT RELEASE_LOCK(?)', [NOME_LOCK]);
+        }
+    });
+
+module.exports = { umzug, conLock, eseguiSenzaVincoli };
 
 // Uso da riga di comando: node src/db/migrazioni.js up|down|pending
 if (require.main === module) {
     const comando = process.argv[2] || 'up';
     const azioni = {
-        up: () => umzug.up(),
-        down: () => umzug.down(),
+        up: () => conLock(() => umzug.up()),
+        down: () => conLock(() => umzug.down()),
         pending: async () => console.log((await umzug.pending()).map((m) => m.name)),
     };
     if (!azioni[comando]) {

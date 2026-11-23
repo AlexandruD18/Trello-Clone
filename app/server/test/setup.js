@@ -3,19 +3,18 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { sequelize } = require('../src/models');
-const { umzug, conUnaConnessione } = require('../src/db/migrazioni');
+const { umzug, eseguiSenzaVincoli } = require('../src/db/migrazioni');
 
 beforeAll(async () => {
-    if (!/test/.test(sequelize.getDatabaseName())) {
-        throw new Error('I test vanno lanciati solo su un database il cui nome contiene "test".');
+    if (!/(^|_)test(_|$)/.test(sequelize.getDatabaseName())) {
+        throw new Error(
+            'I test vanno lanciati solo su un database il cui nome contiene "test" come parola (es. trello_test).'
+        );
     }
     // Database vuoto e schema creato dalle migrazioni, come in produzione.
-    await conUnaConnessione(async (q) => {
-        const [tabelle] = await q('SHOW TABLES');
-        for (const riga of tabelle) {
-            await q(`DROP TABLE \`${Object.values(riga)[0]}\``);
-        }
-    });
+    const [tabelle] = await sequelize.query('SHOW TABLES');
+    const drop = tabelle.map((riga) => `DROP TABLE \`${Object.values(riga)[0]}\`;`).join('\n');
+    if (drop) await eseguiSenzaVincoli(drop);
     await umzug.up();
 });
 

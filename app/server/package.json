@@ -10,7 +10,8 @@
         "test:watch": "vitest",
         "db:migrate": "node src/db/migrazioni.js up",
         "db:migrate:undo": "node src/db/migrazioni.js down",
-        "db:pending": "node src/db/migrazioni.js pending"
+        "db:pending": "node src/db/migrazioni.js pending",
+        "db:verifica": "node src/db/verifica.js"
     },
     "dependencies": {
         "bcryptjs": "^3.0.3",
@@ -26,6 +27,7 @@
         "umzug": "^3.8.3"
     },
     "devDependencies": {
+        "socket.io-client": "^4.8.4",
         "supertest": "^7.3.2",
         "vitest": "^5.1.1"
     }

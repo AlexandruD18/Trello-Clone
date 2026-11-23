@@ -30,16 +30,25 @@ const avvia = async () => {
         );
     }
 
-    const { server } = createApp();
+    const { server, io } = createApp();
     server.listen(config.port, config.host, () => {
         console.log(`Server in ascolto su http://${config.host}:${config.port} (${config.env})`);
     });
 
+    // Chiusura ordinata: prima i socket (che altrimenti tengono aperto il server),
+    // poi le connessioni HTTP e il database. Se qualcosa si blocca, si esce comunque.
+    let inChiusura = false;
     const chiudi = () => {
-        server.close(() => sequelize.close().finally(() => process.exit(0)));
+        if (inChiusura) return;
+        inChiusura = true;
+        setTimeout(() => process.exit(1), 5000).unref();
+        io.close(() => {
+            sequelize.close().finally(() => process.exit(0));
+        });
+        server.closeAllConnections();
     };
     process.on('SIGTERM', chiudi);
     process.on('SIGINT', chiudi);
 };
 
-avvia();
+avvia().catch((errore) => termina('Avvio non riuscito.', errore));

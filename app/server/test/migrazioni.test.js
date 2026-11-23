@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import request from 'supertest';
 
 const require = createRequire(import.meta.url);
-const models = require('../src/models');
+const { sequelize } = require('../src/models');
 const { umzug } = require('../src/db/migrazioni');
-
-const { sequelize } = models;
-
-// Modelli Sequelize veri (non le funzioni esportate insieme).
-const modelli = () => Object.values(sequelize.models);
+const { differenze } = require('../src/db/verifica');
+const { createApp } = require('../src/app');
 
 describe('migrazioni', () => {
     it('non lasciano migrazioni in sospeso', async () => {
@@ -16,18 +15,7 @@ describe('migrazioni', () => {
     });
 
     it('creano ogni colonna dichiarata nei modelli, con lo stesso vincolo di null', async () => {
-        const qi = sequelize.getQueryInterface();
-        for (const modello of modelli()) {
-            const tabella = await qi.describeTable(modello.getTableName());
-            for (const attributo of Object.values(modello.getAttributes())) {
-                const colonna = tabella[attributo.field];
-                expect(colonna, `${modello.getTableName()}.${attributo.field}`).toBeDefined();
-                const nullable = attributo.allowNull !== false && !attributo.primaryKey;
-                expect(colonna.allowNull, `${modello.getTableName()}.${attributo.field}`).toBe(
-                    nullable
-                );
-            }
-        }
+        expect(await differenze()).toEqual([]);
     });
 
     it('si annullano e si riapplicano senza errori', async () => {
@@ -37,5 +25,40 @@ describe('migrazioni', () => {
 
         await umzug.up();
         expect(await umzug.pending()).toEqual([]);
+    });
+
+    it('fuori dai test rifiutano di annullare lo schema iniziale', () => {
+        const esito = spawnSync(process.execPath, ['src/db/migrazioni.js', 'down'], {
+            cwd: new URL('..', import.meta.url),
+            env: { ...process.env, NODE_ENV: 'production' },
+            encoding: 'utf8',
+        });
+        expect(esito.status).toBe(1);
+        expect(esito.stderr).toContain('non si annulla');
+    });
+});
+
+describe('CORS', () => {
+    it('di base non autorizza origini esterne', async () => {
+        const res = await request(createApp({ corsOrigins: [] }).app)
+            .options('/api/health')
+            .set('Origin', 'https://altro-sito.example')
+            .set('Access-Control-Request-Method', 'GET');
+        expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    });
+
+    it('autorizza solo le origini dichiarate', async () => {
+        const { app } = createApp({ corsOrigins: ['https://client.example'] });
+        const ammessa = await request(app)
+            .options('/api/health')
+            .set('Origin', 'https://client.example')
+            .set('Access-Control-Request-Method', 'GET');
+        expect(ammessa.headers['access-control-allow-origin']).toBe('https://client.example');
+
+        const altra = await request(app)
+            .options('/api/health')
+            .set('Origin', 'https://altro-sito.example')
+            .set('Access-Control-Request-Method', 'GET');
+        expect(altra.headers['access-control-allow-origin']).toBeUndefined();
     });
 });
