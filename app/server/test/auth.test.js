@@ -15,9 +15,13 @@ describe('autenticazione', () => {
         const utente = await registraUtente('Bruno');
         const res = await api()
             .post('/api/auth/register')
-            .send({ email: utente.email, password: 'altra-password-1', name: 'Bruno' });
+            .send({
+                email: utente.email.toUpperCase(),
+                password: 'altra-password-1',
+                name: 'Bruno',
+            });
 
-        expect(res.status).toBe(400);
+        expect(res.status).toBe(409);
     });
 
     it('fa login con le credenziali giuste', async () => {

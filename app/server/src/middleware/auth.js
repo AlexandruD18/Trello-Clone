@@ -1,7 +1,9 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const { jwtSecret: JWT_SECRET } = require('../config/env');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'trello-clone-secret-key-2024';
+// Verifica un token di sessione e restituisce il payload (lancia se non valido).
+const verifyToken = (token) => jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
 const authenticate = async (req, res, next) => {
     try {
@@ -13,7 +15,7 @@ const authenticate = async (req, res, next) => {
 
         const token = authHeader.split(' ')[1];
 
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const decoded = verifyToken(token);
 
         const user = await User.findByPk(decoded.userId);
 
@@ -33,7 +35,7 @@ const authenticate = async (req, res, next) => {
 };
 
 const generateToken = (userId) => {
-    return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+    return jwt.sign({ userId }, JWT_SECRET, { algorithm: 'HS256', expiresIn: '7d' });
 };
 
-module.exports = { authenticate, generateToken, JWT_SECRET };
+module.exports = { authenticate, generateToken, verifyToken };

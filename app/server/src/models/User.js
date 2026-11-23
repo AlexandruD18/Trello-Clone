@@ -33,6 +33,10 @@ const User = sequelize.define(
     },
     {
         tableName: 'users',
+        // La password non esce mai dalle query normali, nemmeno dentro le include.
+        // Solo il login usa lo scope 'withPassword'.
+        defaultScope: { attributes: { exclude: ['password'] } },
+        scopes: { withPassword: { attributes: { include: ['password'] } } },
         hooks: {
             beforeCreate: async (user) => {
                 if (user.password) {
@@ -49,10 +53,6 @@ const User = sequelize.define(
         },
     }
 );
-
-User.prototype.comparePassword = async function (password) {
-    return bcrypt.compare(password, this.password);
-};
 
 User.prototype.toJSON = function () {
     const values = { ...this.get() };
