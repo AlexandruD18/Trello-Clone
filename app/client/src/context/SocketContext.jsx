@@ -7,6 +7,9 @@ const SocketContext = createContext(null);
 export function SocketProvider({ children }) {
     const [socket, setSocket] = useState(null);
     const [connected, setConnected] = useState(false);
+    // Quante volte il socket si è riconnesso: chi mostra dati in tempo reale li ricarica.
+    const [riconnessioni, setRiconnessioni] = useState(0);
+    const giaConnesso = useRef(false);
     // Board aperta in questo momento: si riapre a ogni (ri)connessione.
     const boardCorrente = useRef(null);
 
@@ -21,6 +24,8 @@ export function SocketProvider({ children }) {
 
         newSocket.on('connect', () => {
             setConnected(true);
+            if (giaConnesso.current) setRiconnessioni((n) => n + 1);
+            giaConnesso.current = true;
             impostaSocketId(newSocket.id);
             if (boardCorrente.current) {
                 newSocket.emit('join-board', boardCorrente.current);
@@ -65,7 +70,7 @@ export function SocketProvider({ children }) {
     );
 
     return (
-        <SocketContext.Provider value={{ socket, connected, joinBoard, leaveBoard }}>
+        <SocketContext.Provider value={{ socket, connected, riconnessioni, joinBoard, leaveBoard }}>
             {children}
         </SocketContext.Provider>
     );

@@ -132,6 +132,58 @@ describe('Socket.IO', () => {
         expect(await perBruno).toBeNull();
     });
 
+    it('ignora un X-Socket-Id che non appartiene a chi fa la richiesta', async () => {
+        const socketBruno = await apriSocket(bruno.token);
+        await entra(socketBruno, board.id);
+
+        // Il nome della stanza al posto dell'id: prima zittiva tutta la board.
+        const perStanza = aspetta(socketBruno, 'card:created');
+        await request(app)
+            .post('/api/cards')
+            .set(anna.auth)
+            .set('X-Socket-Id', `board:${board.id}`)
+            .send({ title: 'Zitta?', listId: lista.id });
+        expect(await perStanza).not.toBeNull();
+
+        // L'id del socket di un collega: Bruno riceve comunque.
+        const perCollega = aspetta(socketBruno, 'card:created');
+        await request(app)
+            .post('/api/cards')
+            .set(anna.auth)
+            .set('X-Socket-Id', socketBruno.id)
+            .send({ title: 'Esclude Bruno?', listId: lista.id });
+        expect(await perCollega).not.toBeNull();
+    });
+
+    it("un estraneo non annuncia l'uscita da una board che non segue", async () => {
+        const socketBruno = await apriSocket(bruno.token);
+        await entra(socketBruno, board.id);
+        const socketEstraneo = await apriSocket(estraneo.token);
+
+        const uscita = aspetta(socketBruno, 'user:left', 800);
+        socketEstraneo.emit('leave-board', board.id);
+        expect(await uscita).toBeNull();
+    });
+
+    it('con due schede aperte chiuderne una non fa uscire la persona', async () => {
+        const osservatore = await apriSocket(bruno.token);
+        await entra(osservatore, board.id);
+        const carla = await registra('Carla');
+        await BoardMember.create({ boardId: board.id, userId: carla.user.id, role: 'member' });
+        const primaScheda = await apriSocket(carla.token);
+        const secondaScheda = await apriSocket(carla.token);
+        await entra(primaScheda, board.id);
+        await entra(secondaScheda, board.id);
+
+        const uscita = aspetta(osservatore, 'user:left', 800);
+        primaScheda.close();
+        expect(await uscita).toBeNull();
+
+        const uscitaVera = aspetta(osservatore, 'user:left');
+        secondaScheda.close();
+        expect(await uscitaVera).toMatchObject({ userId: carla.user.id });
+    });
+
     it('notifica le modifiche alle checklist come aggiornamento della card', async () => {
         const socketBruno = await apriSocket(bruno.token);
         await entra(socketBruno, board.id);

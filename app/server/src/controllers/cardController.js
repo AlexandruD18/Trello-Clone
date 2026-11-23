@@ -165,11 +165,8 @@ const moveCard = async (req, res) => {
 
         notificaBoard(req, req.board.id, 'card:moved', {
             cardId: fullCard.id,
-
             listId: fullCard.listId,
-
             position: fullCard.position,
-
             card: fullCard,
         });
 

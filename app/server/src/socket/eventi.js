@@ -10,15 +10,29 @@ const impostaIo = (istanza) => {
 
 const stanzaBoard = (boardId) => `board:${boardId}`;
 
+// L'header X-Socket-Id vale solo se indica un socket aperto dallo stesso utente:
+// except() accetta anche nomi di stanza e così si potrebbe zittire una board intera.
+const socketDelMittente = (req) => {
+    const id = req && typeof req.get === 'function' ? req.get('x-socket-id') : null;
+    if (!id || !req.userId) return null;
+    const socket = io.of('/').sockets.get(id);
+    return socket && socket.userId === req.userId ? id : null;
+};
+
 /**
  * Notifica a chi sta guardando la board. Chi ha fatto la richiesta HTTP lo indica
  * con l'header X-Socket-Id e non riceve l'evento: ha già aggiornato la sua vista.
  */
 const notificaBoard = (req, boardId, evento, dati = {}) => {
     if (!io || !boardId) return;
-    const mittente = req && req.get && req.get('x-socket-id');
-    const destinatari = io.to(stanzaBoard(boardId));
-    (mittente ? destinatari.except(mittente) : destinatari).emit(evento, { boardId, ...dati });
+    try {
+        const destinatari = io.to(stanzaBoard(boardId));
+        const mittente = socketDelMittente(req);
+        (mittente ? destinatari.except(mittente) : destinatari).emit(evento, { boardId, ...dati });
+    } catch (error) {
+        // La modifica è già salvata: un errore nella notifica non deve farla fallire.
+        console.error('Notifica non riuscita:', error);
+    }
 };
 
 // Rilegge la card con gli stessi dati della vista board e la invia come card:updated.

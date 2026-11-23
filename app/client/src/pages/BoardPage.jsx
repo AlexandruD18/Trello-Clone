@@ -26,7 +26,7 @@ import { ArrowLeft, Loader2, Plus, LogOut, User } from 'lucide-react';
 function BoardPage() {
     const { boardId, cardId } = useParams();
     const navigate = useNavigate();
-    const { socket, joinBoard, leaveBoard } = useSocket();
+    const { socket, riconnessioni, joinBoard, leaveBoard } = useSocket();
     const { user, logout } = useAuth();
 
     const [board, setBoard] = useState(null);
@@ -55,6 +55,11 @@ function BoardPage() {
             leaveBoard(boardId);
         };
     }, [boardId]);
+
+    // Dopo una riconnessione gli eventi persi non arrivano più: si ricarica la board.
+    useEffect(() => {
+        if (riconnessioni > 0) loadBoard();
+    }, [riconnessioni]);
 
     useEffect(() => {
         if (!socket) return;
@@ -127,16 +132,19 @@ function BoardPage() {
             },
         };
 
-        Object.entries(handlers).forEach(([event, handler]) => {
-            socket.on(event, handler);
-        });
+        // Gli eventi di un'altra board (cambio di board rapido) non toccano questa vista.
+        const ascoltatori = Object.entries(handlers).map(([event, handler]) => [
+            event,
+            (data) => {
+                if (data && data.boardId === boardId) handler(data);
+            },
+        ]);
+        ascoltatori.forEach(([event, ascolta]) => socket.on(event, ascolta));
 
         return () => {
-            Object.keys(handlers).forEach((event) => {
-                socket.off(event);
-            });
+            ascoltatori.forEach(([event, ascolta]) => socket.off(event, ascolta));
         };
-    }, [socket]);
+    }, [socket, boardId]);
 
     const loadBoard = async () => {
         try {
