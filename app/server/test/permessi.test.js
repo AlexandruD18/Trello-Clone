@@ -93,7 +93,10 @@ describe('permessi', () => {
         ['DELETE', `/api/checklists/items/${dati.item.id}`],
         ['GET', `/api/comments?cardId=${dati.card.id}`],
         ['POST', '/api/comments', { text: 'X', cardId: dati.card.id }],
+        ['PUT', `/api/comments/${dati.comment.id}`, { text: 'X' }],
         ['DELETE', `/api/comments/${dati.comment.id}`],
+        ['DELETE', `/api/cards/${dati.card.id}/members/${anna.user.id}`],
+        ['DELETE', `/api/cards/${dati.card.id}/labels/${dati.label.id}`],
         ['GET', `/api/labels?boardId=${dati.board.id}`],
         ['POST', '/api/labels', { color: '#000', boardId: dati.board.id }],
         ['PUT', `/api/labels/${dati.label.id}`, { name: 'X' }],
@@ -119,6 +122,31 @@ describe('permessi', () => {
         expect(inesistente.status).toBe(404);
         const senzaBoard = await api().post('/api/lists').set(anna.auth).send({ name: 'X' });
         expect(senzaBoard.status).toBe(400);
+    });
+
+    it('rifiuta id che non sono stringhe UUID con 400', async () => {
+        const spostamento = await api()
+            .put(`/api/cards/${dati.card.id}/move`)
+            .set(anna.auth)
+            .send({ listId: [dati.list.id], position: 1 });
+        expect(spostamento.status).toBe(400);
+        const elenco = await api().get('/api/boards?workspaceId[a]=b').set(anna.auth);
+        expect(elenco.status).toBe(400);
+    });
+
+    it('un viewer del workspace non crea board', async () => {
+        const { WorkspaceMember } = require('../src/models');
+        const osservatore = await registraUtente('Osservatore');
+        await WorkspaceMember.create({
+            workspaceId: anna.workspace.id,
+            userId: osservatore.user.id,
+            role: 'viewer',
+        });
+        const res = await api()
+            .post('/api/boards')
+            .set(osservatore.auth)
+            .send({ name: 'Nuova', workspaceId: anna.workspace.id });
+        expect(res.status).toBe(403);
     });
 
     it('un viewer legge ma non modifica', async () => {

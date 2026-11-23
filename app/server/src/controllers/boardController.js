@@ -11,10 +11,14 @@ const {
     WorkspaceMember,
 } = require('../models');
 const { Op } = require('sequelize');
+const { isUuid } = require('../middleware/permessi');
 
 const getBoards = async (req, res) => {
     try {
         const { workspaceId } = req.query;
+        if (workspaceId !== undefined && !isUuid(workspaceId)) {
+            return res.status(400).json({ error: 'Identificativo del workspace non valido' });
+        }
 
         // Solo le board di cui l'utente è membro o che stanno in un suo workspace.
         const [inviti, iscrizioni] = await Promise.all([

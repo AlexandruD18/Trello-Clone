@@ -9,7 +9,7 @@ const {
     ChecklistItem,
     Comment,
 } = require('../models');
-const { ruoloBoard } = require('../middleware/permessi');
+const { ruoloBoard, isUuid } = require('../middleware/permessi');
 
 const getCard = async (req, res) => {
     try {
@@ -124,6 +124,9 @@ const moveCard = async (req, res) => {
 
         if (typeof position !== 'number' || !Number.isFinite(position)) {
             return res.status(400).json({ error: 'Posizione non valida' });
+        }
+        if (listId !== undefined && !isUuid(listId)) {
+            return res.status(400).json({ error: 'Lista di destinazione non valida' });
         }
 
         const card = await Card.findByPk(req.params.id);
