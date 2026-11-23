@@ -9,6 +9,7 @@ const {
     ChecklistItem,
     Comment,
 } = require('../models');
+const { notificaBoard, notificaCard } = require('../socket/eventi');
 const { ruoloBoard } = require('../middleware/permessi');
 
 const getCard = async (req, res) => {
@@ -79,6 +80,8 @@ const createCard = async (req, res) => {
             ],
         });
 
+        notificaBoard(req, req.board.id, 'card:created', { card: fullCard });
+
         res.status(201).json(fullCard);
     } catch (error) {
         console.error('Create card error:', error);
@@ -110,6 +113,8 @@ const updateCard = async (req, res) => {
                 { model: Comment, as: 'comments' },
             ],
         });
+
+        notificaBoard(req, req.board.id, 'card:updated', { card: fullCard });
 
         res.json(fullCard);
     } catch (error) {
@@ -155,6 +160,16 @@ const moveCard = async (req, res) => {
             ],
         });
 
+        notificaBoard(req, req.board.id, 'card:moved', {
+            cardId: fullCard.id,
+
+            listId: fullCard.listId,
+
+            position: fullCard.position,
+
+            card: fullCard,
+        });
+
         res.json(fullCard);
     } catch (error) {
         console.error('Move card error:', error);
@@ -171,6 +186,8 @@ const deleteCard = async (req, res) => {
         }
 
         await card.update({ isArchived: true });
+
+        notificaBoard(req, req.board.id, 'card:deleted', { cardId: card.id });
 
         res.json({ message: 'Card archived' });
     } catch (error) {
@@ -198,6 +215,7 @@ const addMember = async (req, res) => {
                 { model: Label, as: 'labels', through: { attributes: [] } },
             ],
         });
+        await notificaCard(req, req.board.id, req.params.id);
 
         res.json(card);
     } catch (error) {
@@ -218,6 +236,7 @@ const removeMember = async (req, res) => {
                 { model: Label, as: 'labels', through: { attributes: [] } },
             ],
         });
+        await notificaCard(req, req.board.id, req.params.id);
 
         res.json(card);
     } catch (error) {
@@ -245,6 +264,7 @@ const addLabel = async (req, res) => {
                 { model: Label, as: 'labels', through: { attributes: [] } },
             ],
         });
+        await notificaCard(req, req.board.id, req.params.id);
 
         res.json(card);
     } catch (error) {
@@ -265,6 +285,7 @@ const removeLabel = async (req, res) => {
                 { model: Label, as: 'labels', through: { attributes: [] } },
             ],
         });
+        await notificaCard(req, req.board.id, req.params.id);
 
         res.json(card);
     } catch (error) {

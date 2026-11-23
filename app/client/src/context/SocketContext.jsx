@@ -1,54 +1,68 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { impostaSocketId } from '../lib/api';
 
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
     const [socket, setSocket] = useState(null);
     const [connected, setConnected] = useState(false);
+    // Board aperta in questo momento: si riapre a ogni (ri)connessione.
+    const boardCorrente = useRef(null);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
+        if (!token) return undefined;
 
-        if (token) {
-            const newSocket = io(window.location.origin, {
-                auth: { token },
-                transports: ['websocket', 'polling'],
-            });
+        const newSocket = io(window.location.origin, {
+            auth: { token },
+            transports: ['websocket', 'polling'],
+        });
 
-            newSocket.on('connect', () => {
-                console.log('Socket connected');
-                setConnected(true);
-            });
+        newSocket.on('connect', () => {
+            setConnected(true);
+            impostaSocketId(newSocket.id);
+            if (boardCorrente.current) {
+                newSocket.emit('join-board', boardCorrente.current);
+            }
+        });
 
-            newSocket.on('disconnect', () => {
-                console.log('Socket disconnected');
-                setConnected(false);
-            });
+        newSocket.on('disconnect', () => {
+            setConnected(false);
+            impostaSocketId(null);
+        });
 
-            newSocket.on('connect_error', (error) => {
-                console.error('Socket connection error:', error);
-            });
+        newSocket.on('connect_error', (error) => {
+            console.error('Socket connection error:', error.message);
+        });
 
-            setSocket(newSocket);
+        setSocket(newSocket);
 
-            return () => {
-                newSocket.close();
-            };
-        }
+        return () => {
+            impostaSocketId(null);
+            newSocket.close();
+        };
     }, []);
 
-    const joinBoard = (boardId) => {
-        if (socket) {
-            socket.emit('join-board', boardId);
-        }
-    };
+    const joinBoard = useCallback(
+        (boardId) => {
+            boardCorrente.current = boardId;
+            if (socket && socket.connected) {
+                socket.emit('join-board', boardId);
+            }
+        },
+        [socket]
+    );
 
-    const leaveBoard = (boardId) => {
-        if (socket) {
-            socket.emit('leave-board', boardId);
-        }
-    };
+    const leaveBoard = useCallback(
+        (boardId) => {
+            if (boardCorrente.current === boardId) boardCorrente.current = null;
+            if (socket && socket.connected) {
+                socket.emit('leave-board', boardId);
+            }
+        },
+        [socket]
+    );
 
     return (
         <SocketContext.Provider value={{ socket, connected, joinBoard, leaveBoard }}>

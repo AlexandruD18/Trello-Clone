@@ -166,7 +166,6 @@ function BoardPage() {
                 boardId,
             });
             setLists([...lists, { ...res.data, cards: [] }]);
-            socket?.emit('list:created', { boardId, list: res.data });
             setNewListName('');
             setShowAddList(false);
         } catch (error) {
@@ -176,9 +175,8 @@ function BoardPage() {
 
     const handleUpdateList = async (listId, name) => {
         try {
-            const res = await api.put(`/lists/${listId}`, { name });
+            await api.put(`/lists/${listId}`, { name });
             setLists(lists.map((l) => (l.id === listId ? { ...l, name } : l)));
-            socket?.emit('list:updated', { boardId, list: res.data });
         } catch (error) {
             console.error('Failed to update list:', error);
         }
@@ -188,7 +186,6 @@ function BoardPage() {
         try {
             await api.delete(`/lists/${listId}`);
             setLists(lists.filter((l) => l.id !== listId));
-            socket?.emit('list:deleted', { boardId, listId });
         } catch (error) {
             console.error('Failed to delete list:', error);
         }
@@ -205,7 +202,6 @@ function BoardPage() {
                     return l;
                 })
             );
-            socket?.emit('card:created', { boardId, card: res.data });
         } catch (error) {
             console.error('Failed to create card:', error);
         }
@@ -226,7 +222,6 @@ function BoardPage() {
                 cards: (l.cards || []).map((c) => (c.id === updatedCard.id ? updatedCard : c)),
             }))
         );
-        socket?.emit('card:updated', { boardId, card: updatedCard });
     };
 
     const handleCardDelete = async (cardId) => {
@@ -238,7 +233,6 @@ function BoardPage() {
                     cards: (l.cards || []).filter((c) => c.id !== cardId),
                 }))
             );
-            socket?.emit('card:deleted', { boardId, cardId });
             navigate(`/b/${boardId}`);
         } catch (error) {
             console.error('Failed to delete card:', error);
@@ -335,11 +329,6 @@ function BoardPage() {
                     await api.put(`/lists/${active.id}/move`, {
                         position: updatedLists.find((l) => l.id === active.id).position,
                     });
-                    socket?.emit('list:moved', {
-                        boardId,
-                        listId: active.id,
-                        position: updatedLists.find((l) => l.id === active.id).position,
-                    });
                 } catch (error) {
                     console.error('Failed to move list:', error);
                 }
@@ -388,16 +377,9 @@ function BoardPage() {
             }
 
             try {
-                const res = await api.put(`/cards/${active.id}/move`, {
+                await api.put(`/cards/${active.id}/move`, {
                     listId: targetListId,
                     position: newPosition,
-                });
-                socket?.emit('card:moved', {
-                    boardId,
-                    cardId: active.id,
-                    listId: targetListId,
-                    position: newPosition,
-                    card: res.data,
                 });
             } catch (error) {
                 console.error('Failed to move card:', error);

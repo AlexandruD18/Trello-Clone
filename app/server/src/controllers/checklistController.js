@@ -1,4 +1,5 @@
 const { Checklist, ChecklistItem } = require('../models');
+const { notificaCard } = require('../socket/eventi');
 
 const createChecklist = async (req, res) => {
     try {
@@ -24,6 +25,7 @@ const createChecklist = async (req, res) => {
         const fullChecklist = await Checklist.findByPk(checklist.id, {
             include: [{ model: ChecklistItem, as: 'items' }],
         });
+        await notificaCard(req, req.board.id, cardId);
 
         res.status(201).json(fullChecklist);
     } catch (error) {
@@ -43,6 +45,7 @@ const updateChecklist = async (req, res) => {
         }
 
         await checklist.update({ title });
+        await notificaCard(req, req.board.id, checklist.cardId);
 
         res.json(checklist);
     } catch (error) {
@@ -61,6 +64,7 @@ const deleteChecklist = async (req, res) => {
 
         await ChecklistItem.destroy({ where: { checklistId: checklist.id } });
         await checklist.destroy();
+        await notificaCard(req, req.board.id, checklist.cardId);
 
         res.json({ message: 'Checklist deleted' });
     } catch (error) {
@@ -90,6 +94,9 @@ const createChecklistItem = async (req, res) => {
             position,
         });
 
+        const madre = await Checklist.findByPk(item.checklistId, { attributes: ['cardId'] });
+        await notificaCard(req, req.board.id, madre && madre.cardId);
+
         res.status(201).json(item);
     } catch (error) {
         console.error('Create checklist item error:', error);
@@ -109,6 +116,9 @@ const updateChecklistItem = async (req, res) => {
 
         await item.update({ title, isCompleted });
 
+        const madre = await Checklist.findByPk(item.checklistId, { attributes: ['cardId'] });
+        await notificaCard(req, req.board.id, madre && madre.cardId);
+
         res.json(item);
     } catch (error) {
         console.error('Update checklist item error:', error);
@@ -125,6 +135,9 @@ const deleteChecklistItem = async (req, res) => {
         }
 
         await item.destroy();
+
+        const madre = await Checklist.findByPk(item.checklistId, { attributes: ['cardId'] });
+        await notificaCard(req, req.board.id, madre && madre.cardId);
 
         res.json({ message: 'Checklist item deleted' });
     } catch (error) {
