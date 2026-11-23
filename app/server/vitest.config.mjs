@@ -13,6 +13,8 @@ export default defineConfig({
             NODE_ENV: 'test',
             JWT_SECRET:
                 process.env.JWT_SECRET || 'segreto-solo-per-i-test-lungo-almeno-32-caratteri',
+            // Il limite vero si prova in un test dedicato con un'app configurata apposta.
+            AUTH_RATE_LIMIT: '10000',
             DB_HOST: process.env.DB_HOST || '127.0.0.1',
             DB_PORT: process.env.DB_PORT || '3307',
             DB_NAME: process.env.DB_NAME || 'trello_test',

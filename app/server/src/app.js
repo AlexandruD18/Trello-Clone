@@ -3,6 +3,9 @@ const cors = require('cors');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
+const helmet = require('helmet');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+const config = require('./config/env');
 const { setupSocketHandlers } = require('./socket/socketHandler');
 
 const authRoutes = require('./routes/auth');
@@ -16,8 +19,14 @@ const labelRoutes = require('./routes/labels');
 
 // Crea app Express, server HTTP e Socket.IO senza metterli in ascolto:
 // index.js li avvia, i test li usano direttamente.
-const createApp = () => {
+const createApp = ({
+    authRateLimit = config.authRateLimit,
+    trustProxy = config.trustProxy,
+    https = config.https,
+} = {}) => {
     const app = express();
+    // Fidarsi di X-Forwarded-For solo se davanti c'è davvero un proxy.
+    app.set('trust proxy', trustProxy);
     const server = http.createServer(app);
 
     const io = new Server(server, {
@@ -42,8 +51,58 @@ const createApp = () => {
         })
     );
 
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: true }));
+    app.use(
+        helmet({
+            contentSecurityPolicy: {
+                directives: {
+                    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+                    'font-src': ["'self'", 'https://fonts.gstatic.com'],
+                    'img-src': ["'self'", 'data:'],
+                    'connect-src': ["'self'"],
+                    // In HTTP puro questa direttiva farebbe chiedere gli asset in HTTPS
+                    // e la pagina resterebbe bianca.
+                    'upgrade-insecure-requests': https ? [] : null,
+                },
+            },
+            strictTransportSecurity: https,
+        })
+    );
+
+    app.use(express.json({ limit: '100kb' }));
+    app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+
+    // Freno ai tentativi di indovinare le password e alle registrazioni in massa.
+    const opzioniLimite = {
+        windowMs: 15 * 60 * 1000,
+        limit: authRateLimit,
+        standardHeaders: 'draft-8',
+        legacyHeaders: false,
+        message: { error: 'Troppi tentativi. Riprova tra qualche minuto.' },
+    };
+    // Login, due livelli che contano solo i tentativi falliti:
+    // - per IP + email: blocca chi prova tante password su un account;
+    // - per IP, con un tetto più alto: blocca chi prova poche password su tanti
+    //   account, senza fermare tante persone dietro lo stesso NAT (aula, ufficio).
+    const limiteLoginPerIp = rateLimit({
+        ...opzioniLimite,
+        limit: authRateLimit * 5,
+        skipSuccessfulRequests: true,
+    });
+    const limiteLoginPerAccount = rateLimit({
+        ...opzioniLimite,
+        skipSuccessfulRequests: true,
+        keyGenerator: (req) => {
+            // Email tagliata a 255 caratteri: chiavi lunghe riempirebbero la memoria.
+            const email =
+                typeof req.body?.email === 'string'
+                    ? req.body.email.trim().toLowerCase().slice(0, 255)
+                    : '';
+            return `${ipKeyGenerator(req.ip)}|${email}`;
+        },
+    });
+    const limiteRegistrazione = rateLimit(opzioniLimite);
+    app.use('/api/auth/login', limiteLoginPerIp, limiteLoginPerAccount);
+    app.use('/api/auth/register', limiteRegistrazione);
 
     app.use('/api/auth', authRoutes);
     app.use('/api/workspaces', workspaceRoutes);
@@ -68,8 +127,19 @@ const createApp = () => {
     }
 
     app.use((err, req, res, _next) => {
+        // JSON malformato o corpo troppo grande: errore del client, non del server.
+        if (err.type === 'entity.parse.failed') {
+            return res.status(400).json({ error: 'Il corpo della richiesta non è JSON valido' });
+        }
+        if (err.type === 'entity.too.large') {
+            return res.status(413).json({ error: 'Richiesta troppo grande' });
+        }
+        // Altri errori del client segnalati dal body parser (charset, encoding...).
+        if (err.expose && err.status >= 400 && err.status < 500) {
+            return res.status(err.status).json({ error: 'Richiesta non valida' });
+        }
         console.error('Error:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Errore interno del server' });
     });
 
     return { app, server, io };

@@ -1,5 +1,4 @@
-const jwt = require('jsonwebtoken');
-const { JWT_SECRET } = require('../middleware/auth');
+const { verifyToken } = require('../middleware/auth');
 
 const boardRooms = new Map();
 
@@ -12,7 +11,7 @@ const setupSocketHandlers = (io) => {
         }
 
         try {
-            const decoded = jwt.verify(token, JWT_SECRET);
+            const decoded = verifyToken(token);
             socket.userId = decoded.userId;
             next();
         } catch (error) {

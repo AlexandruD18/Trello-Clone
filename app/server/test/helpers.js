@@ -1,10 +1,16 @@
 import { createRequire } from 'node:module';
 import request from 'supertest';
+import { randomBytes } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 const { createApp } = require('../src/app');
 
 export const { app } = createApp();
+
+// Password dei test generate a ogni esecuzione: nel codice non ne resta nessuna.
+export const nuovaPassword = () => `pw-${randomBytes(12).toString('hex')}`;
+export const PASSWORD = nuovaPassword();
+export const SBAGLIATA = nuovaPassword();
 export const api = () => request(app);
 
 let contatore = 0;
@@ -15,7 +21,7 @@ export const registraUtente = async (nome = 'Utente') => {
     const email = `${nome.toLowerCase()}.${Date.now()}.${contatore}@esempio.it`;
     const res = await api()
         .post('/api/auth/register')
-        .send({ email, password: 'password-sicura-1', name: nome });
+        .send({ email, password: PASSWORD, name: nome });
     if (res.status !== 201) {
         throw new Error(`Registrazione fallita: ${res.status} ${JSON.stringify(res.body)}`);
     }
