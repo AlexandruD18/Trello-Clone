@@ -28,7 +28,7 @@ describe('migrazioni', () => {
     });
 
     it('fuori dai test rifiutano di annullare lo schema iniziale', () => {
-        const esito = spawnSync(process.execPath, ['src/db/migrazioni.js', 'down'], {
+        const esito = spawnSync(process.execPath, ['src/db/migrazioni.js', 'down', '0'], {
             cwd: new URL('..', import.meta.url),
             env: { ...process.env, NODE_ENV: 'production' },
             encoding: 'utf8',

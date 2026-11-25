@@ -19,6 +19,7 @@ const apriConnessione = () => {
         password,
         database,
         multipleStatements: true,
+        charset: 'utf8mb4',
     });
 };
 
@@ -96,12 +97,13 @@ const conLock = (lavoro) =>
 
 module.exports = { umzug, conLock, eseguiSenzaVincoli };
 
-// Uso da riga di comando: node src/db/migrazioni.js up|down|pending
+// Uso da riga di comando: node src/db/migrazioni.js up|down [0]|pending
 if (require.main === module) {
     const comando = process.argv[2] || 'up';
     const azioni = {
         up: () => conLock(() => umzug.up()),
-        down: () => conLock(() => umzug.down()),
+        // down annulla l'ultima; down 0 le annulla tutte.
+        down: () => conLock(() => umzug.down(process.argv[3] === '0' ? { to: 0 } : undefined)),
         pending: async () => console.log((await umzug.pending()).map((m) => m.name)),
     };
     if (!azioni[comando]) {

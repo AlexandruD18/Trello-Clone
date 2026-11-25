@@ -125,3 +125,44 @@ const chiudi = () => {
 Nessun problema bloccante. Ci sono tre punti da correggere prima del merge: la chiusura che si blocca con Socket.IO (1), il `db:migrate:undo` che in produzione cancella tutto (2) e il parser SQL fragile (3, oppure almeno la regola scritta e un test). I suggerimenti 4 e 5 vanno affrontati prima del primo deploy su un database esistente, anche in una PR successiva.
 
 Esito: da correggere
+
+## Seconda verifica (25/11/2026)
+
+Commit verificato: `ad96f9d` su `fix/17-migrazioni`. Ho usato solo il database `trello_test_rev`.
+
+### Come ho controllato
+
+- Ho letto il diff di `ad96f9d`: `migrazioni.js`, il nuovo `verifica.js`, `index.js`, `setup.js`, i test `avvio.test.js` e `migrazioni.test.js`, `package.json` e il lockfile.
+- `DB_NAME=trello_test_rev npm test`: 5 file, 40 test verdi e 1 saltato. Il test saltato è la chiusura su SIGTERM, che su Windows non si può provare e gira nella CI Linux. Lint e Prettier sono puliti.
+- Ho fatto alcune prove a mano con script nella scratchpad, fuori dal progetto. Sono elencate punto per punto qui sotto.
+
+### Esito dei punti del primo rapporto
+
+| Punto | Stato | Come l'ho verificato |
+|---|---|---|
+| 1. Chiusura bloccata da Socket.IO | Risolto | `createApp` restituisce già `io`. Ho ripetuto la prova del primo giro: client collegato via websocket, poi `SIGTERM`. Prima il processo era ancora vivo dopo 8 s, ora esce con codice 0 subito. Il timer da 5 s ha `unref()`, quindi non tiene vivo il processo. Il secondo segnale viene ignorato, e il timer garantisce comunque l'uscita. |
+| 2. `db:migrate:undo` cancella tutto | Risolto | `node src/db/migrazioni.js down` senza `NODE_ENV`, e poi con `NODE_ENV=production` e `CONFERMA_CANCELLAZIONE_DATI=yes`: si rifiuta in entrambi i casi, con codice 1 e un messaggio chiaro. Le tabelle e la riga in `migrazioni` restano (`pending` vuoto). C'è un test che lo copre. |
+| 3. Parser SQL fragile | Risolto | Ora il file va intero su una connessione `mysql2` dedicata con `multipleStatements`. Ho provato un `DEFAULT` con `;` e un a capo dentro la stringa, un commento finale con `;` e tre istruzioni sulla stessa riga: tutto eseguito correttamente. Un errore a metà file arriva a chi ha chiamato e la connessione si chiude nel `finally`. Il processo non resta appeso. |
+| 5. Baseline che si fida dello schema | Risolto per le colonne | `npm run db:verifica` stampa "Il database corrisponde ai modelli." con codice 0. Dopo `DROP COLUMN cards.cover_color` segnala "manca la colonna cards.cover_color". Come detto, controlla colonne e `NULL`, non tipi né FK. Per il primo deploy basta. |
+| 6. Migrazione fallita a metà, nessun lock | Lock risolto, il resto resta | Ho tenuto `GET_LOCK('trello_clone_migrazioni')` da una sessione `mysql` per circa 6 s: `db:migrate up` ha aspettato 5 s, poi è partito ed è uscito con codice 0. Il limite del DDL che fa commit da solo resta, perché è di MySQL. La regola "una migrazione = un cambiamento, idempotente dove si può" non è scritta da nessuna parte (vedi sotto). |
+| 7. `avvia()` senza `.catch` | Risolto | `avvia().catch(...)` chiama `termina`. Il test "si ferma con un messaggio se il database non risponde" passa. |
+| 8. Test su schema e CORS | Risolto in parte | I test CORS ci sono e sono corretti. Senza origini manca `Access-Control-Allow-Origin`; con un'origine dichiarata, l'intestazione c'è solo per quella. Il test dello schema usa `differenze()` e quindi controlla ancora solo colonne e `NULL`. FK e `ON DELETE` restano scoperti: lo accetto come suggerimento. |
+| 9. Setup dei test | Risolto | `/(^|_)test(_|$)/` accetta `trello_test` e `trello_test_rev`, e rifiuta `latest`, `contest` e `attestati_prod`. Il controllo avviene ancora prima di qualsiasi `DROP`. |
+| 4. Nomi dei vincoli in produzione | Rinviato | Va valutato sul database reale, come concordato. |
+| 10. README e valori predefiniti | Rinviato | Se ne occupa la issue #22. Prima del deploy resta da controllare che il `.env` di produzione dichiari `DB_USER` e `DB_PORT`. |
+
+### Regressioni
+
+Non ne ho trovate. Il resto della suite è invariato e verde, e sul database di prova lo schema torna pulito dopo `down({ to: 0 })` + `up()`. `socket.io-client` è nelle `devDependencies` del server e nel lockfile. Il lock e la verifica non entrano nell'avvio del server, che resta veloce.
+
+### Suggerimenti rimasti (non bloccano)
+
+- **`app/server/migrations/`**: aggiungere due righe (README o commento in testa a `migrazioni.js`) sulle regole delle prossime migrazioni. Una migrazione per cambiamento. `IF EXISTS`/`IF NOT EXISTS` dove MySQL lo consente. Nomi espliciti per vincoli e indici. Espandere prima e contrarre nel deploy successivo. Senza queste regole, una migrazione fallita a metà va riparata a mano.
+- **`app/server/src/db/migrazioni.js:13-22`**: la connessione dedicata usa il charset predefinito di `mysql2`. Le tabelle della 0001 dichiarano il charset in modo esplicito, quindi oggi non cambia niente. Nelle prossime migrazioni conviene fare lo stesso, oppure passare `charset: 'utf8mb4'`.
+- **Test della chiusura**: su Windows è saltato. Il primo giro della CI Linux deve mostrarlo verde, non "skipped". ⟦da verificare nella CI⟧
+
+### Esito finale
+
+I tre punti da correggere (1, 2 e 3) sono risolti e verificati. Sono risolti anche i suggerimenti 5, 7 e 9, il lock del 6 e i test CORS dell'8. I punti 4 e 10 sono rinviati con un motivo e non bloccano il merge, ma vanno fatti prima del primo deploy su un database esistente.
+
+Esito: approvata
