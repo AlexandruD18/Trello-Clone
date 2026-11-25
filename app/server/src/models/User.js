@@ -33,10 +33,14 @@ const User = sequelize.define(
     },
     {
         tableName: 'users',
-        // La password non esce mai dalle query normali, nemmeno dentro le include.
-        // Solo il login usa lo scope 'withPassword'.
-        defaultScope: { attributes: { exclude: ['password'] } },
-        scopes: { withPassword: { attributes: { include: ['password'] } } },
+        // Password ed email non escono mai dalle query normali, nemmeno dentro le
+        // include (membri di board e card, autori dei commenti). Il login usa
+        // 'withPassword', il proprio profilo 'profilo'.
+        defaultScope: { attributes: { exclude: ['password', 'email'] } },
+        scopes: {
+            withPassword: { attributes: { include: ['password', 'email'] } },
+            profilo: { attributes: { include: ['email'] } },
+        },
         hooks: {
             beforeCreate: async (user) => {
                 if (user.password) {

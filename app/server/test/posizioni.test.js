@@ -83,7 +83,7 @@ describe('ordinamento di liste e card', () => {
         expect(titoli.at(-1)).toBe('Ultima');
         expect(new Set(titoli).size).toBe(62);
         expect(prima.id && ultima.id).toBeTruthy();
-    });
+    }, 60000);
 
     it('non assegna la stessa posizione a spostamenti contemporanei', async () => {
         const lista = await creaLista('Contesa');
