@@ -8,40 +8,38 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            api.get('/auth/me')
-                .then((res) => {
-                    setUser(res.data.user);
-                })
-                .catch(() => {
-                    localStorage.removeItem('token');
-                })
-                .finally(() => {
-                    setLoading(false);
-                });
-        } else {
-            setLoading(false);
+        // Le versioni precedenti tenevano il token in localStorage: lo togliamo.
+        try {
+            localStorage.removeItem('token');
+        } catch {
+            // localStorage non disponibile (navigazione privata): niente da pulire.
         }
+
+        // La sessione è in un cookie httpOnly: si chiede al server chi siamo.
+        api.get('/auth/me')
+            .then((res) => setUser(res.data.user))
+            .catch(() => setUser(null))
+            .finally(() => setLoading(false));
     }, []);
 
     const login = async (email, password) => {
         const res = await api.post('/auth/login', { email, password });
-        localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
         return res.data;
     };
 
     const register = async (email, password, name) => {
         const res = await api.post('/auth/register', { email, password, name });
-        localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
         return res.data;
     };
 
-    const logout = () => {
-        localStorage.removeItem('token');
-        setUser(null);
+    const logout = async () => {
+        try {
+            await api.post('/auth/logout');
+        } finally {
+            setUser(null);
+        }
     };
 
     return (

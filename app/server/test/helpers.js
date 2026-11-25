@@ -13,9 +13,16 @@ export const PASSWORD = nuovaPassword();
 export const SBAGLIATA = nuovaPassword();
 export const api = () => request(app);
 
+// Dalla risposta di login o registrazione al valore da mandare nell'header Cookie.
+export const cookieSessione = (res) => {
+    const riga = (res.headers['set-cookie'] || []).find((c) => c.startsWith('sessione='));
+    return riga ? riga.split(';')[0] : null;
+};
+
 let contatore = 0;
 
-// Registra un utente nuovo e restituisce token, utente e workspace personale.
+// Registra un utente nuovo e restituisce utente, workspace personale e il cookie
+// di sessione (token = valore dell'header Cookie, auth = header da passare a .set()).
 export const registraUtente = async (nome = 'Utente') => {
     contatore += 1;
     const email = `${nome.toLowerCase()}.${Date.now()}.${contatore}@esempio.it`;
@@ -25,5 +32,6 @@ export const registraUtente = async (nome = 'Utente') => {
     if (res.status !== 201) {
         throw new Error(`Registrazione fallita: ${res.status} ${JSON.stringify(res.body)}`);
     }
-    return { ...res.body, email, auth: { Authorization: `Bearer ${res.body.token}` } };
+    const token = cookieSessione(res);
+    return { ...res.body, email, token, auth: { Cookie: token } };
 };

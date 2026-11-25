@@ -146,7 +146,7 @@ describe('protezioni HTTP', () => {
     it('rifiuta un token firmato con un altro segreto', async () => {
         const jwt = require('jsonwebtoken');
         const falso = jwt.sign({ userId: 'chiunque' }, 'trello-clone-secret-key-2024');
-        const res = await api().get('/api/auth/me').set('Authorization', `Bearer ${falso}`);
+        const res = await api().get('/api/auth/me').set('Cookie', `sessione=${falso}`);
         expect(res.status).toBe(401);
     });
 });

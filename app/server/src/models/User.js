@@ -30,6 +30,13 @@ const User = sequelize.define(
             type: DataTypes.STRING(500),
             allowNull: true,
         },
+        // Cresce di uno a ogni "esci da tutti i dispositivi": i token vecchi smettono di valere.
+        sessionVersion: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
+            field: 'session_version',
+        },
     },
     {
         tableName: 'users',
@@ -57,6 +64,7 @@ const User = sequelize.define(
 User.prototype.toJSON = function () {
     const values = { ...this.get() };
     delete values.password;
+    delete values.sessionVersion;
     return values;
 };
 

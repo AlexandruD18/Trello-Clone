@@ -5,7 +5,8 @@ describe('autenticazione', () => {
     it('registra un utente e crea il suo workspace personale', async () => {
         const utente = await registraUtente('Anna');
 
-        expect(utente.token).toBeTypeOf('string');
+        expect(utente.token).toMatch(/^sessione=/);
+        expect(utente).not.toHaveProperty('user.password');
         expect(utente.user.email).toBe(utente.email);
         expect(utente.user).not.toHaveProperty('password');
         expect(utente.workspace.ownerId).toBe(utente.user.id);
@@ -29,7 +30,8 @@ describe('autenticazione', () => {
             .send({ email: utente.email, password: PASSWORD });
 
         expect(res.status).toBe(200);
-        expect(res.body.token).toBeTypeOf('string');
+        expect(res.body).not.toHaveProperty('token');
+        expect(res.headers['set-cookie'][0]).toMatch(/HttpOnly/);
     });
 
     it('rifiuta il login con la password sbagliata', async () => {

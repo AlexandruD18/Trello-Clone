@@ -17,7 +17,9 @@ export default defineConfig({
         proxy: {
             '/api': {
                 target: API_TARGET,
-                changeOrigin: true,
+                // L'host resta quello del browser (localhost:5173): il server confronta
+                // Origin e Host per bloccare le richieste da altri siti.
+                changeOrigin: false,
             },
             '/socket.io': {
                 target: API_TARGET,
