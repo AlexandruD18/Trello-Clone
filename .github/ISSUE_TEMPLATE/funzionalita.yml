@@ -1,0 +1,23 @@
+name: Proponi una funzionalità
+description: Un'idea per migliorare l'app
+labels: [enhancement]
+body:
+    - type: textarea
+      id: problema
+      attributes:
+          label: Problema da risolvere
+          description: Chi ne ha bisogno e in quale situazione.
+      validations:
+          required: true
+    - type: textarea
+      id: proposta
+      attributes:
+          label: Proposta
+      validations:
+          required: true
+    - type: textarea
+      id: criteri
+      attributes:
+          label: Quando sarà fatta
+          placeholder: |
+              - [ ] ...

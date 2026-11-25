@@ -1,5 +1,7 @@
 # **Documento di Analisi Tecnica (DAT)**
 
+> **Nota del 25/11/2026.** Questo documento è la specifica di partenza. Il progetto usa **MySQL 8 con Sequelize** al posto di PostgreSQL, Prisma o TypeORM, e **non usa Redis**: un solo processo Node gestisce API e Socket.IO. Per lo stato attuale fanno fede il [README](../../README.md) e il [CHANGELOG](../../CHANGELOG.md).
+
 ## **Titolo progetto: Trello-Clone Backend**
 
 **Versione:** 1.0

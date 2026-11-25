@@ -1,0 +1,31 @@
+name: Segnala un problema
+description: Qualcosa non funziona come dovrebbe
+labels: [bug]
+body:
+    - type: textarea
+      id: cosa
+      attributes:
+          label: Cosa succede
+          description: Descrivi il problema e cosa ti aspettavi invece.
+      validations:
+          required: true
+    - type: textarea
+      id: passi
+      attributes:
+          label: Come riprodurlo
+          placeholder: |
+              1. Apri una board
+              2. Trascina una card su un'altra lista
+              3. ...
+      validations:
+          required: true
+    - type: input
+      id: ambiente
+      attributes:
+          label: Browser e sistema
+          placeholder: Chrome 131 su Windows 11
+    - type: textarea
+      id: log
+      attributes:
+          label: Log o screenshot
+          description: Errori della console del browser o del server, se ci sono. Togli eventuali dati personali.
