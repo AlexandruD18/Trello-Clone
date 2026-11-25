@@ -1,4 +1,5 @@
-const { List, Card, User, Label } = require('../models');
+const { sequelize, List, Card, User, Label } = require('../models');
+const { posizionePerIndice, indiceValido } = require('../services/posizioni');
 const { notificaBoard } = require('../socket/eventi');
 
 const createList = async (req, res) => {
@@ -69,26 +70,35 @@ const updateList = async (req, res) => {
 
 const moveList = async (req, res) => {
     try {
-        const { position } = req.body;
+        const { index } = req.body;
 
-        if (typeof position !== 'number' || !Number.isFinite(position)) {
-            return res.status(400).json({ error: 'Posizione non valida' });
+        if (!indiceValido(index)) {
+            return res.status(400).json({ error: 'Indice di destinazione non valido' });
         }
 
-        const list = await List.findByPk(req.params.id);
-
-        if (!list) {
-            return res.status(404).json({ error: 'List not found' });
-        }
-
-        await list.update({ position });
-
-        notificaBoard(req, req.board.id, 'list:moved', {
-            listId: list.id,
-            position: list.position,
+        const { list, rinumerati } = await sequelize.transaction(async (transaction) => {
+            const lista = await List.findByPk(req.params.id, { transaction });
+            const { posizione, rinumerati: rinum } = await posizionePerIndice({
+                modello: List,
+                dove: { boardId: lista.boardId, isArchived: false },
+                escludi: lista.id,
+                indice: index,
+                transaction,
+            });
+            await lista.update({ position: posizione }, { transaction });
+            return { list: lista, rinumerati: rinum };
         });
 
-        res.json(list);
+        if (rinumerati) {
+            notificaBoard(req, req.board.id, 'board:refresh');
+        } else {
+            notificaBoard(req, req.board.id, 'list:moved', {
+                listId: list.id,
+                position: list.position,
+            });
+        }
+
+        res.json({ ...list.toJSON(), rinumerati });
     } catch (error) {
         console.error('Move list error:', error);
         res.status(500).json({ error: 'Failed to move list' });

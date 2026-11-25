@@ -8,7 +8,9 @@ const {
     Checklist,
     ChecklistItem,
     Comment,
+    sequelize,
 } = require('../models');
+const { posizionePerIndice, indiceValido } = require('../services/posizioni');
 const { notificaBoard, notificaCard } = require('../socket/eventi');
 const { ruoloBoard, isUuid } = require('../middleware/permessi');
 
@@ -125,30 +127,42 @@ const updateCard = async (req, res) => {
 
 const moveCard = async (req, res) => {
     try {
-        const { listId, position } = req.body;
+        // Il client dice dove vuole la card (indice nella lista di destinazione);
+        // la posizione numerica la calcola il server.
+        const { listId, index } = req.body;
 
-        if (typeof position !== 'number' || !Number.isFinite(position)) {
-            return res.status(400).json({ error: 'Posizione non valida' });
+        if (!indiceValido(index)) {
+            return res.status(400).json({ error: 'Indice di destinazione non valido' });
         }
         if (listId !== undefined && !isUuid(listId)) {
             return res.status(400).json({ error: 'Lista di destinazione non valida' });
         }
 
-        const card = await Card.findByPk(req.params.id);
+        const esito = await sequelize.transaction(async (transaction) => {
+            const card = await Card.findByPk(req.params.id, { transaction });
+            if (!card) return { stato: 404, errore: 'Card not found' };
 
-        if (!card) {
-            return res.status(404).json({ error: 'Card not found' });
+            // La lista di destinazione deve stare nella stessa board della card.
+            const destinazione = await List.findByPk(listId || card.listId, { transaction });
+            if (!destinazione || destinazione.boardId !== req.board.id) {
+                return { stato: 400, errore: 'La lista di destinazione non è in questa board' };
+            }
+
+            const { posizione, rinumerati } = await posizionePerIndice({
+                modello: Card,
+                dove: { listId: destinazione.id, isArchived: false },
+                escludi: card.id,
+                indice: index,
+                transaction,
+            });
+            await card.update({ listId: destinazione.id, position: posizione }, { transaction });
+            return { card, rinumerati };
+        });
+
+        if (esito.errore) {
+            return res.status(esito.stato).json({ error: esito.errore });
         }
-
-        // La lista di destinazione deve stare nella stessa board della card.
-        const destinazione = await List.findByPk(listId || card.listId);
-        if (!destinazione || destinazione.boardId !== req.board.id) {
-            return res
-                .status(400)
-                .json({ error: 'La lista di destinazione non è in questa board' });
-        }
-
-        await card.update({ listId: destinazione.id, position });
+        const { card, rinumerati } = esito;
 
         const fullCard = await Card.findByPk(card.id, {
             include: [
@@ -163,14 +177,19 @@ const moveCard = async (req, res) => {
             ],
         });
 
-        notificaBoard(req, req.board.id, 'card:moved', {
-            cardId: fullCard.id,
-            listId: fullCard.listId,
-            position: fullCard.position,
-            card: fullCard,
-        });
+        if (rinumerati) {
+            // Sono cambiate le posizioni di tutta la lista: gli altri ricaricano la board.
+            notificaBoard(req, req.board.id, 'board:refresh');
+        } else {
+            notificaBoard(req, req.board.id, 'card:moved', {
+                cardId: fullCard.id,
+                listId: fullCard.listId,
+                position: fullCard.position,
+                card: fullCard,
+            });
+        }
 
-        res.json(fullCard);
+        res.json({ ...fullCard.toJSON(), rinumerati });
     } catch (error) {
         console.error('Move card error:', error);
         res.status(500).json({ error: 'Failed to move card' });
