@@ -12,6 +12,9 @@ export function SocketProvider({ children }) {
     const giaConnesso = useRef(false);
     // Board aperta in questo momento: si riapre a ogni (ri)connessione.
     const boardCorrente = useRef(null);
+    // Socket attuale letto da join/leave: le funzioni restano stabili tra un render e l'altro
+    // e la pulizia di un effetto usa sempre il socket vero, non quello del primo render.
+    const socketRef = useRef(null);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -41,33 +44,31 @@ export function SocketProvider({ children }) {
             console.error('Socket connection error:', error.message);
         });
 
+        socketRef.current = newSocket;
         setSocket(newSocket);
 
         return () => {
             impostaSocketId(null);
+            socketRef.current = null;
             newSocket.close();
         };
     }, []);
 
-    const joinBoard = useCallback(
-        (boardId) => {
-            boardCorrente.current = boardId;
-            if (socket && socket.connected) {
-                socket.emit('join-board', boardId);
-            }
-        },
-        [socket]
-    );
+    const joinBoard = useCallback((boardId) => {
+        boardCorrente.current = boardId;
+        const attuale = socketRef.current;
+        if (attuale && attuale.connected) {
+            attuale.emit('join-board', boardId);
+        }
+    }, []);
 
-    const leaveBoard = useCallback(
-        (boardId) => {
-            if (boardCorrente.current === boardId) boardCorrente.current = null;
-            if (socket && socket.connected) {
-                socket.emit('leave-board', boardId);
-            }
-        },
-        [socket]
-    );
+    const leaveBoard = useCallback((boardId) => {
+        if (boardCorrente.current === boardId) boardCorrente.current = null;
+        const attuale = socketRef.current;
+        if (attuale && attuale.connected) {
+            attuale.emit('leave-board', boardId);
+        }
+    }, []);
 
     return (
         <SocketContext.Provider value={{ socket, connected, riconnessioni, joinBoard, leaveBoard }}>
