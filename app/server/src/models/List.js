@@ -19,7 +19,7 @@ const List = sequelize.define(
             field: 'board_id',
         },
         position: {
-            type: DataTypes.FLOAT,
+            type: DataTypes.DOUBLE,
             allowNull: false,
             defaultValue: 0,
         },

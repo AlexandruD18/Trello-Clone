@@ -35,7 +35,7 @@ const notificaBoard = (req, boardId, evento, dati = {}) => {
     }
 };
 
-// Rilegge la card con gli stessi dati della vista board e la invia come card:updated.
+// Rilegge il riepilogo della card (come nella vista board) e lo invia come card:updated.
 // Si usa dopo modifiche a checklist, commenti, membri ed etichette.
 const notificaCard = async (req, boardId, cardId) => {
     if (!io || !cardId) return;
@@ -49,19 +49,8 @@ const notificaCard = async (req, boardId, cardId) => {
 
 const inviaCard = async (req, boardId, cardId) => {
     // Caricato qui per evitare un require circolare con i modelli all'avvio.
-    const { Card, User, Label, Checklist, ChecklistItem, Comment } = require('../models');
-    const card = await Card.findByPk(cardId, {
-        include: [
-            { model: User, as: 'members', through: { attributes: [] } },
-            { model: Label, as: 'labels', through: { attributes: [] } },
-            {
-                model: Checklist,
-                as: 'checklists',
-                include: [{ model: ChecklistItem, as: 'items' }],
-            },
-            { model: Comment, as: 'comments' },
-        ],
-    });
+    const { riepilogoCard } = require('../services/riepilogoCard');
+    const card = await riepilogoCard(cardId);
     if (card) notificaBoard(req, boardId, 'card:updated', { card });
 };
 

@@ -1,16 +1,6 @@
-const {
-    Board,
-    BoardMember,
-    List,
-    Card,
-    Label,
-    User,
-    Checklist,
-    ChecklistItem,
-    Comment,
-    WorkspaceMember,
-} = require('../models');
+const { Board, BoardMember, List, Label, User, WorkspaceMember } = require('../models');
 const { Op } = require('sequelize');
+const { riepiloghiCard } = require('../services/riepilogoCard');
 const { isUuid } = require('../middleware/permessi');
 const { notificaBoard } = require('../socket/eventi');
 
@@ -59,47 +49,16 @@ const getBoards = async (req, res) => {
 
 const getBoard = async (req, res) => {
     try {
+        // Tre query semplici invece di un'unica join enorme: board, liste, riepiloghi delle card.
         const board = await Board.findByPk(req.params.id, {
             include: [
                 {
                     model: User,
                     as: 'members',
+                    attributes: ['id', 'name', 'avatar'],
                     through: { attributes: ['role'] },
                 },
-                {
-                    model: Label,
-                    as: 'labels',
-                },
-                {
-                    model: List,
-                    as: 'lists',
-                    where: { isArchived: false },
-                    required: false,
-                    include: [
-                        {
-                            model: Card,
-                            as: 'cards',
-                            where: { isArchived: false },
-                            required: false,
-                            include: [
-                                { model: User, as: 'members', through: { attributes: [] } },
-                                { model: Label, as: 'labels', through: { attributes: [] } },
-                                {
-                                    model: Checklist,
-                                    as: 'checklists',
-                                    include: [{ model: ChecklistItem, as: 'items' }],
-                                },
-                                { model: Comment, as: 'comments' },
-                            ],
-                            order: [['position', 'ASC']],
-                        },
-                    ],
-                    order: [['position', 'ASC']],
-                },
-            ],
-            order: [
-                [{ model: List, as: 'lists' }, 'position', 'ASC'],
-                [{ model: List, as: 'lists' }, { model: Card, as: 'cards' }, 'position', 'ASC'],
+                { model: Label, as: 'labels' },
             ],
         });
 
@@ -107,7 +66,25 @@ const getBoard = async (req, res) => {
             return res.status(404).json({ error: 'Board not found' });
         }
 
-        res.json(board);
+        const lists = await List.findAll({
+            where: { boardId: board.id, isArchived: false },
+            order: [
+                ['position', 'ASC'],
+                ['id', 'ASC'],
+            ],
+        });
+        const cards = await riepiloghiCard({
+            listId: lists.map((l) => l.id),
+            isArchived: false,
+        });
+
+        const cardsPerLista = new Map(lists.map((l) => [l.id, []]));
+        for (const card of cards) cardsPerLista.get(card.listId).push(card);
+
+        res.json({
+            ...board.toJSON(),
+            lists: lists.map((l) => ({ ...l.toJSON(), cards: cardsPerLista.get(l.id) })),
+        });
     } catch (error) {
         console.error('Get board error:', error);
         res.status(500).json({ error: 'Failed to get board' });

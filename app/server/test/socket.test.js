@@ -194,14 +194,21 @@ describe('Socket.IO', () => {
                 .send({ title: 'Con checklist', listId: lista.id })
         ).body;
 
-        const perBruno = aspetta(socketBruno, 'card:updated');
-        await request(app)
-            .post('/api/checklists')
-            .set(anna.auth)
-            .send({ title: 'Passi', cardId: card.id });
+        const perChecklist = aspetta(socketBruno, 'card:updated');
+        const checklist = (
+            await request(app)
+                .post('/api/checklists')
+                .set(anna.auth)
+                .send({ title: 'Passi', cardId: card.id })
+        ).body;
+        expect((await perChecklist).card.id).toBe(card.id);
 
-        const evento = await perBruno;
-        expect(evento.card.id).toBe(card.id);
-        expect(evento.card.checklists).toHaveLength(1);
+        const perElemento = aspetta(socketBruno, 'card:updated');
+        await request(app)
+            .post('/api/checklists/items')
+            .set(anna.auth)
+            .send({ title: 'Primo', checklistId: checklist.id });
+        const evento = await perElemento;
+        expect(evento.card).toMatchObject({ id: card.id, checklistTotal: 1, checklistDone: 0 });
     });
 });
