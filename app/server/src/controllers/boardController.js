@@ -25,8 +25,9 @@ const getBoards = async (req, res) => {
             BoardMember.findAll({ where: { userId: req.userId }, attributes: ['boardId'] }),
             WorkspaceMember.findAll({ where: { userId: req.userId }, attributes: ['workspaceId'] }),
         ]);
+        // ?archiviate=true elenca le board archiviate (per ripristinarle).
         const where = {
-            isArchived: false,
+            isArchived: req.query.archiviate === 'true',
             [Op.or]: [
                 { id: inviti.map((m) => m.boardId) },
                 { workspaceId: iscrizioni.map((m) => m.workspaceId) },
@@ -194,4 +195,14 @@ const deleteBoard = async (req, res) => {
     }
 };
 
-module.exports = { getBoards, getBoard, createBoard, updateBoard, deleteBoard };
+const restoreBoard = async (req, res) => {
+    try {
+        await req.board.update({ isArchived: false });
+        res.json(req.board);
+    } catch (error) {
+        console.error('Restore board error:', error);
+        res.status(500).json({ error: 'Ripristino della board non riuscito' });
+    }
+};
+
+module.exports = { getBoards, getBoard, createBoard, updateBoard, deleteBoard, restoreBoard };
