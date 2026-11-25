@@ -1,4 +1,5 @@
 const { Comment, User } = require('../models');
+const { notificaCard } = require('../socket/eventi');
 
 const getComments = async (req, res) => {
     try {
@@ -34,6 +35,7 @@ const createComment = async (req, res) => {
         const fullComment = await Comment.findByPk(comment.id, {
             include: [{ model: User, as: 'author' }],
         });
+        await notificaCard(req, req.board.id, cardId);
 
         res.status(201).json(fullComment);
     } catch (error) {
@@ -61,6 +63,7 @@ const updateComment = async (req, res) => {
         const fullComment = await Comment.findByPk(comment.id, {
             include: [{ model: User, as: 'author' }],
         });
+        await notificaCard(req, req.board.id, comment.cardId);
 
         res.json(fullComment);
     } catch (error) {
@@ -83,6 +86,7 @@ const deleteComment = async (req, res) => {
         }
 
         await comment.destroy();
+        await notificaCard(req, req.board.id, comment.cardId);
 
         res.json({ message: 'Comment deleted' });
     } catch (error) {
