@@ -17,7 +17,7 @@ npm run build
 echo "Preparo il pacchetto..."
 tar -czf deploy.tar.gz \
     package.json package-lock.json ecosystem.config.js \
-    app/server/package.json app/server/src app/server/.env.example \
+    app/server/package.json app/server/src app/server/migrations app/server/.env.example \
     app/client/package.json app/client/dist
 trap 'rm -f deploy.tar.gz' EXIT
 
@@ -38,6 +38,7 @@ if [ ! -f app/server/.env ]; then
     exit 1
 fi
 
+npm run db:migrate -w app/server
 pm2 startOrReload ecosystem.config.js --env production
 pm2 save
 ENDSSH

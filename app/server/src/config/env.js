@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 // Legge e controlla la configurazione una volta sola, all'avvio.
 // Se manca qualcosa di indispensabile il processo si ferma con un messaggio chiaro.
@@ -33,8 +33,19 @@ const leggiTrustProxy = (valore) => {
     return valore;
 };
 
+// Origini esterne autorizzate a chiamare le API (CORS), separate da virgola.
+// Vuoto: solo la stessa origine. In sviluppo il proxy di Vite rende tutto same-origin.
+const leggiOrigini = (valore) =>
+    (valore || '')
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+
 const config = {
     env: process.env.NODE_ENV || 'development',
+    port: numero(process.env.PORT, 3000),
+    host: process.env.HOST || '0.0.0.0',
+    corsOrigins: leggiOrigini(process.env.CORS_ORIGINS),
     jwtSecret: leggiSegretoJwt(),
     // Tentativi di login o registrazione consentiti per IP ogni 15 minuti.
     authRateLimit: numero(process.env.AUTH_RATE_LIMIT, 20),
