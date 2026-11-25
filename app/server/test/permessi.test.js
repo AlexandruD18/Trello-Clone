@@ -76,12 +76,12 @@ describe('permessi', () => {
         ['DELETE', `/api/boards/${dati.board.id}`],
         ['POST', '/api/lists', { name: 'X', boardId: dati.board.id }],
         ['PUT', `/api/lists/${dati.list.id}`, { name: 'X' }],
-        ['PUT', `/api/lists/${dati.list.id}/move`, { position: 1 }],
+        ['PUT', `/api/lists/${dati.list.id}/move`, { index: 0 }],
         ['DELETE', `/api/lists/${dati.list.id}`],
         ['GET', `/api/cards/${dati.card.id}`],
         ['POST', '/api/cards', { title: 'X', listId: dati.list.id }],
         ['PUT', `/api/cards/${dati.card.id}`, { title: 'X' }],
-        ['PUT', `/api/cards/${dati.card.id}/move`, { listId: dati.list.id, position: 1 }],
+        ['PUT', `/api/cards/${dati.card.id}/move`, { listId: dati.list.id, index: 0 }],
         ['DELETE', `/api/cards/${dati.card.id}`],
         ['POST', `/api/cards/${dati.card.id}/members`, { userId: estraneo.user.id }],
         ['POST', `/api/cards/${dati.card.id}/labels`, { labelId: dati.label.id }],
@@ -128,7 +128,7 @@ describe('permessi', () => {
         const spostamento = await api()
             .put(`/api/cards/${dati.card.id}/move`)
             .set(anna.auth)
-            .send({ listId: [dati.list.id], position: 1 });
+            .send({ listId: [dati.list.id], index: 0 });
         expect(spostamento.status).toBe(400);
         const elenco = await api().get('/api/boards?workspaceId[a]=b').set(anna.auth);
         expect(elenco.status).toBe(400);
@@ -194,13 +194,13 @@ describe('coerenza tra board', () => {
         const spostaAltrove = await api()
             .put(`/api/cards/${prima.card.id}/move`)
             .set(anna.auth)
-            .send({ listId: altrui.list.id, position: 1 });
+            .send({ listId: altrui.list.id, index: 0 });
         expect(spostaAltrove.status).toBe(400);
 
         const spostaNellaMia = await api()
             .put(`/api/cards/${prima.card.id}/move`)
             .set(anna.auth)
-            .send({ listId: seconda.list.id, position: 1 });
+            .send({ listId: seconda.list.id, index: 0 });
         expect(spostaNellaMia.status).toBe(400);
 
         const etichettaAltrui = await api()
