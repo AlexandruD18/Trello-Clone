@@ -1,4 +1,5 @@
 const { List, Card, User, Label } = require('../models');
+const { notificaBoard } = require('../socket/eventi');
 
 const createList = async (req, res) => {
     try {
@@ -36,6 +37,8 @@ const createList = async (req, res) => {
             ],
         });
 
+        notificaBoard(req, req.board.id, 'list:created', { list: fullList });
+
         res.status(201).json(fullList);
     } catch (error) {
         console.error('Create list error:', error);
@@ -54,6 +57,8 @@ const updateList = async (req, res) => {
         }
 
         await list.update({ name });
+
+        notificaBoard(req, req.board.id, 'list:updated', { list });
 
         res.json(list);
     } catch (error) {
@@ -78,6 +83,11 @@ const moveList = async (req, res) => {
 
         await list.update({ position });
 
+        notificaBoard(req, req.board.id, 'list:moved', {
+            listId: list.id,
+            position: list.position,
+        });
+
         res.json(list);
     } catch (error) {
         console.error('Move list error:', error);
@@ -94,6 +104,8 @@ const deleteList = async (req, res) => {
         }
 
         await list.update({ isArchived: true });
+
+        notificaBoard(req, req.board.id, 'list:deleted', { listId: list.id });
 
         res.json({ message: 'List archived' });
     } catch (error) {
