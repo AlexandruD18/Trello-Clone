@@ -19,19 +19,21 @@ function Card({ card, onClick, isDragging: isDraggingProp }) {
     };
 
     const labels = card.labels || [];
-    const comments = card.comments || [];
-    const checklists = card.checklists || [];
-
-    const checklistStats = checklists.reduce(
-        (acc, cl) => {
-            const items = cl.items || [];
-            return {
-                total: acc.total + items.length,
-                completed: acc.completed + items.filter((i) => i.isCompleted).length,
-            };
-        },
-        { total: 0, completed: 0 }
-    );
+    // Nella board arrivano solo i conteggi; dopo una modifica la card può arrivare completa.
+    const commentCount = card.commentCount ?? (card.comments || []).length;
+    const checklistStats =
+        card.checklistTotal !== undefined
+            ? { total: card.checklistTotal, completed: card.checklistDone }
+            : (card.checklists || []).reduce(
+                  (acc, cl) => {
+                      const items = cl.items || [];
+                      return {
+                          total: acc.total + items.length,
+                          completed: acc.completed + items.filter((i) => i.isCompleted).length,
+                      };
+                  },
+                  { total: 0, completed: 0 }
+              );
 
     const getDueDateColor = () => {
         if (!card.dueDate) return '';
@@ -106,10 +108,10 @@ function Card({ card, onClick, isDragging: isDraggingProp }) {
                     </span>
                 )}
 
-                {comments.length > 0 && (
+                {commentCount > 0 && (
                     <span className="text-xs text-gray-500 flex items-center gap-1">
                         <MessageSquare className="h-3 w-3" />
-                        {comments.length}
+                        {commentCount}
                     </span>
                 )}
             </div>
