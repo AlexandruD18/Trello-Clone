@@ -77,3 +77,16 @@ if (destinazione.isArchived) {
 ## Esito: da correggere
 
 Il punto 1 va corretto prima del merge, con un test. È una modifica di poche righe. I punti 2-5 possono diventare issue separate.
+
+## Seconda verifica (25/11/2026)
+
+Ho controllato il commit `08b9975` sul branch `fix/46-archiviate` e la PR #49 (branch `fix/18-posizioni`, letta nel suo worktree senza toccarla). Poi ho rilanciato `DB_NAME=trello_test_rev npm test`: 7 file, 51 test verdi e 1 saltato.
+
+- **Punto 1 (spostamento verso una lista archiviata): coperto dalla #49, accettato.** Nella #49 `moveCard` blocca le due liste dentro una transazione e risponde 400 ("La lista di destinazione è archiviata") prima di aggiornare la card. Il test `non sposta una card in una lista archiviata` in `test/posizioni.test.js` copre il caso. Non duplicarlo qui è la scelta giusta, perché la #49 riscrive tutta la funzione. Il buco c'è già oggi su `main`, quindi la #51 non lo apre. La #51 rende però più grave l'effetto: prima la card si poteva riportare indietro, ora resta bloccata. Per questo la condizione è che la #49 entri prima di una release, come previsto per la chiusura dello sprint. Un suggerimento per la #49: oltre allo stato 400, il test dovrebbe verificare che la card resti nella lista di partenza.
+- **Punto 3 (`ancheArchiviata` salta tutta la catena): risolto con la documentazione.** Il JSDoc di `autorizza` ora spiega il limite e cosa deve controllare un futuro ripristino di liste e card. Per l'unico uso attuale, il `restore` della board, basta.
+- **Punto 4 (nessuna notifica): risolto.** `deleteBoard` e `restoreBoard` mandano `board:refresh` alla stanza della board, dopo che la modifica è stata salvata. L'evento non porta dati: chi lo riceve ricarica la board passando da `GET`, quindi dai permessi. Il listener lato client arriva con la #49 (`BoardPage.jsx`). Finché la #49 non entra, l'evento viene ignorato, senza effetti collaterali.
+- **Punti 2 e 5 (ripristino di liste e card, stato archiviato nel client): spostati nell'issue #52.** Vanno bene come lavoro separato.
+
+## Esito finale: approvata
+
+La PR si può unire. Resta una condizione: la #49 deve entrare prima della prossima release, perché è lei a chiudere il punto 1.
