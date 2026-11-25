@@ -12,6 +12,7 @@ const {
 } = require('../models');
 const { Op } = require('sequelize');
 const { isUuid } = require('../middleware/permessi');
+const { notificaBoard } = require('../socket/eventi');
 
 const getBoards = async (req, res) => {
     try {
@@ -187,6 +188,8 @@ const deleteBoard = async (req, res) => {
         }
 
         await board.update({ isArchived: true });
+        // Chi ha la board aperta la ricarica e la vede in sola lettura.
+        notificaBoard(req, board.id, 'board:refresh');
 
         res.json({ message: 'Board archived' });
     } catch (error) {
@@ -198,6 +201,7 @@ const deleteBoard = async (req, res) => {
 const restoreBoard = async (req, res) => {
     try {
         await req.board.update({ isArchived: false });
+        notificaBoard(req, req.board.id, 'board:refresh');
         res.json(req.board);
     } catch (error) {
         console.error('Restore board error:', error);

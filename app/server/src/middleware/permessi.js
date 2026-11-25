@@ -91,7 +91,9 @@ const NON_TROVATO = {
  * @param {(req) => string} leggiId da dove prendere l'id (params, body o query)
  * @param {'viewer'|'member'|'admin'} minimo ruolo minimo richiesto
  * @param {{ ancheArchiviata?: boolean }} [opzioni] ancheArchiviata: la modifica è
- *   ammessa anche su risorse archiviate (serve al ripristino)
+ *   ammessa anche su risorse archiviate (serve al ripristino). Attenzione: salta il
+ *   controllo su tutta la catena, non solo sulla risorsa; un futuro ripristino di
+ *   card o liste deve controllare a parte che board e lista sopra siano attive.
  * Le board, le liste e le card archiviate si possono solo leggere.
  * Imposta req.board e req.boardRole (oppure req.workspace e req.workspaceRole).
  */
