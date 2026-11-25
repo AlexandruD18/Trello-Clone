@@ -1,212 +1,119 @@
-# Guida Avvio Progetto Trello-Clone 🚀
+# Guida di avvio
 
-Questa guida ti accompagna passo per passo per clonare la repository, configurare PostgreSQL via Docker e avviare l'applicazione (server + client) in locale su Windows.
+Questa guida porta da un computer vuoto all'app funzionante in locale, con i test. Il riassunto veloce è nel [README](../README.md#avvio-rapido).
 
----
+## 1. Cosa serve
 
-## Prerequisiti
+| Strumento | Versione | Per cosa |
+| --- | --- | --- |
+| Node.js | 20 o più recente | server, client, test |
+| npm | quello di Node | dipendenze (il repository è un workspace npm) |
+| Docker Desktop | qualsiasi versione recente | MySQL 8 in un container |
+| Git | | clonare il repository |
 
-- Node.js ≥ 18 (consigliato LTS)
-- npm ≥ 9
-- Docker Desktop installato e in esecuzione
-- Git installato
-- VS Code
+Se hai già un MySQL 8 installato puoi saltare Docker: ti servono un database, un utente con tutti i permessi su quel database e la sua password.
 
-Suggerimento: verifica le versioni con:
-
-```bash
-node -v
-npm -v
-git --version
-```
-
----
-
-## 1) Clona la repository e apri il progetto
-
-Apri un terminale nella cartella dove vuoi salvare il progetto, poi:
+## 2. Codice e dipendenze
 
 ```bash
-git clone <link-repository>
+git clone https://github.com/AlexandruD18/Trello-Clone.git
 cd Trello-Clone
-code .
-```
-
-Note:
-
-- `code .` apre il progetto direttamente in VS Code.
-- Se il nome della cartella non è `Trello-Clone`, sostituiscilo con quello corretto dopo il clone.
-
----
-
-## 2) Installa le dipendenze
-
-Installa le librerie per server e client usando due terminali separati (oppure uno solo, navigando tra le cartelle).
-
-Server:
-
-```bash
-cd app/server
 npm install
 ```
 
-Client (in un nuovo terminale o tornando indietro con `cd ..`):
+`npm install` dalla radice installa insieme server (`app/server`) e client (`app/client`). Non serve entrare nelle cartelle.
+
+## 3. Database
 
 ```bash
-cd app/client
-npm install
+docker run -d --name trello-mysql -p 3307:3306 \
+    -e MYSQL_RANDOM_ROOT_PASSWORD=yes \
+    -e MYSQL_DATABASE=trello \
+    -e MYSQL_USER=trello \
+    -e MYSQL_PASSWORD=scegli-una-password \
+    mysql:8.4
 ```
 
----
-
-## 3) Avvia il database PostgreSQL (Docker)
-
-Useremo PostgreSQL in Docker, in ascolto sulla porta host `5433` (mappata sulla `5432` del container). Avvia Docker Desktop, poi esegui:
+La porta esterna è 3307 per non scontrarsi con un eventuale MySQL già acceso sulla 3306. Il primo avvio del container impiega una ventina di secondi; controlli che sia pronto con:
 
 ```bash
-docker run --name trello-db -p 5433:5432 -e POSTGRES_USER=trellouser -e POSTGRES_PASSWORD=CAMBIAMI -e POSTGRES_DB=trellodb -d postgres:alpine
+docker exec trello-mysql mysqladmin ping -utrello -pscegli-una-password
 ```
 
-Note:
+La risposta attesa è `mysqld is alive`.
 
-- Se il nome `trello-db` è già in uso, avvia il container esistente dalla dashboard di Docker (pallino verde = in esecuzione).
-- Per riavvio rapido: `docker start trello-db`
-- Per verificare: `docker ps` (controlla che `trello-db` sia "Up")
+## 4. Configurazione
 
----
-
-## 4) Configura le variabili ambiente
-
-Assicurati che il server punti al database sulla porta `5433`. Crea (o aggiorna) nella root della cartella `app/server` un file `.env` con valori coerenti. Esempio:
-
-```env
-# Server
-PORT=4000
-NODE_ENV=development
-
-# Database (PostgreSQL via Docker)
-DB_HOST=localhost
-DB_PORT=5433
-DB_USER=trellouser
-DB_PASSWORD=CAMBIAMI
-DB_NAME=trellodb
-
-# JWT
-JWT_SECRET=your_super_secret_jwt_key_here
-
-# Redis (se usato)
-REDIS_URL=redis://localhost:6379
-
-# CORS / Client
-CLIENT_URL=http://localhost:5173
+```bash
+cp app/server/.env.example app/server/.env
 ```
 
-Per il client, crea un file `.env` in `app/client`:
+Nel file `app/server/.env` cambia almeno:
 
-```env
-VITE_API_URL=http://localhost:4000
-VITE_WS_URL=ws://localhost:4000
+```ini
+JWT_SECRET=<incolla qui un valore lungo e casuale>
+DB_PORT=3307
+DB_PASSWORD=scegli-una-password
 ```
 
-Se il progetto usa ORM come Prisma/TypeORM, verifica anche i file di configurazione (es. `prisma/schema.prisma`) per coerenza con queste variabili.
+Per generare `JWT_SECRET`:
 
----
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
 
-## 5) Avvia l'applicazione (due terminali)
+Il server controlla la configurazione all'avvio e si ferma con un messaggio chiaro se `JWT_SECRET` manca o è più corto di 32 caratteri. Le altre variabili sono spiegate in [.env.example](../app/server/.env.example).
 
-Avvia server e client in parallelo.
+## 5. Schema del database
 
-Terminale 1 — Server (dalla cartella `app/server`):
+```bash
+npm run db:migrate
+```
+
+Crea le tabelle applicando i file di `app/server/migrations` in ordine. Il server non parte se ci sono migrazioni in sospeso, quindi va rilanciato ogni volta che ne arrivano di nuove con un `git pull`.
+
+## 6. Avvio
 
 ```bash
 npm run dev
 ```
 
-Terminale 2 — Client (dalla cartella `app/client`):
+Partono insieme:
+
+- il server su <http://localhost:3000>, che si riavvia da solo quando cambi un file;
+- il client Vite su <http://localhost:5173>, che inoltra `/api` e `/socket.io` al server.
+
+Apri <http://localhost:5173>, registrati, crea una board. Per provare il tempo reale apri la stessa board in una finestra anonima con un secondo utente, dopo averlo invitato dal primo.
+
+## 7. Test
+
+I test usano un database separato, il cui nome deve contenere `test` (es. `trello_test`): il setup lo svuota a ogni esecuzione.
 
 ```bash
-npm run dev
+docker exec trello-mysql mysql -uroot -p"$(docker logs trello-mysql 2>&1 | grep 'GENERATED ROOT PASSWORD' | awk '{print $NF}')" \
+    -e "CREATE DATABASE trello_test; GRANT ALL ON trello_test.* TO 'trello'@'%';"
+
+DB_PASSWORD=scegli-una-password npm test
 ```
 
-Punti di accesso usuali:
+La password di root casuale si legge nel log del container, nella riga `GENERATED ROOT PASSWORD`. Per default i test si collegano a `127.0.0.1:3307`; si cambia con `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 
-- API server: http://localhost:4000 (o come configurato in `.env`)
-- Frontend: http://localhost:5173
+Prima di aprire una pull request conviene lanciare anche `npm run lint` e `npm run format:check`: sono gli stessi controlli della CI.
 
----
+## 8. Problemi comuni
 
-## 6) Verifica rapida
+| Sintomo | Causa probabile | Cosa fare |
+| --- | --- | --- |
+| `JWT_SECRET mancante o troppo corto` all'avvio | `.env` non compilato | passo 4 |
+| `Database non raggiungibile su 127.0.0.1:3306` | porta sbagliata o container spento | `DB_PORT=3307` nel `.env`; `docker start trello-mysql` |
+| `Ci sono N migrazioni da eseguire` | schema vecchio dopo un `git pull` | `npm run db:migrate` |
+| `Access denied for user 'trello'` | password diversa da quella del container | allinea `DB_PASSWORD` a `MYSQL_PASSWORD` |
+| La board non si aggiorna da sola | client aperto su un'altra porta o socket rifiutato | usa <http://localhost:5173>; con un client su un'altra origine aggiungila a `CORS_ORIGINS` |
+| `Richiesta da un sito non autorizzato` (403) | la richiesta arriva da un'origine non ammessa | stessa causa della riga sopra |
+| `Troppi tentativi. Riprova tra qualche minuto.` | rate limit sui login falliti | aspetta 15 minuti o alza `AUTH_RATE_LIMIT` in sviluppo |
+| I test si fermano con `I test vanno lanciati solo su un database…` | `DB_NAME` senza `test` | usa `trello_test` |
+| La porta 3000 o 5173 è occupata | un'altra istanza è ancora accesa | chiudila, oppure cambia `PORT` (e `API_TARGET` per Vite) |
 
-- Frontend: apri il browser su `http://localhost:5173`
-- Registrazione/Login: crea un account e accedi
-- Board: crea una nuova board, aggiungi liste e card, testa drag-and-drop
+## 9. Produzione
 
----
-
-## 7) Troubleshooting
-
-- Porta occupata (5433):
-  - Cambia mapping `-p 5434:5432` nel comando Docker e aggiorna `DB_PORT=5434` nel `.env`.
-- Il container non parte:
-  - Controlla Docker Desktop sia avviato.
-  - `docker logs trello-db` per vedere log di errore.
-- Errore di connessione al DB:
-  - Verifica `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
-  - Testa con un client PostgreSQL (es. DBeaver) usando gli stessi valori.
-- Il client non si connette all'API:
-  - Verifica `CLIENT_URL` e CORS lato server.
-  - Controlla che il server sia effettivamente su `http://localhost:4000`.
-- Problemi su Windows (PowerShell):
-  - Esegui i comandi in PowerShell o Git Bash.
-  - Se `code` non è riconosciuto, aggiungi VS Code al PATH o apri manualmente.
-- WebSocket non funziona:
-  - Assicurati che Redis sia avviato se usato per Pub/Sub (vedi sezione Redis se applicabile).
-
----
-
-## 8) Comandi utili
-
-Arresta e rimuovi il DB (attenzione: dati persi):
-
-```bash
-docker stop trello-db
-docker rm trello-db
-```
-
-Ricrea il DB pulito:
-
-```bash
-docker run --name trello-db -p 5433:5432 -e POSTGRES_USER=trellouser -e POSTGRES_PASSWORD=CAMBIAMI -e POSTGRES_DB=trellodb -d postgres:alpine
-```
-
-Lista container attivi:
-
-```bash
-docker ps
-```
-
-Se usi Redis per caching/Pub/Sub:
-
-```bash
-docker run --name trello-redis -p 6379:6379 -d redis:alpine
-```
-
----
-
-## 9) Suggerimenti di qualità
-
-- Mantieni `.env` fuori dal VCS se contiene segreti (aggiungi a `.gitignore`).
-- Usa un tool DB (DBeaver/Beekeeper) per ispezionare tabelle e dati.
-- Valuta `npm run build` sul client per testare la build production.
-- Se disponibile, esegui migrazioni ORM prima di avviare il server (Prisma/TypeORM).
-- Per testing: esegui `npm run test` su server e client per verificare suite unitarie/integrazione.
-
----
-
-## 10) Riferimenti
-
-- Documentazione PostgreSQL Docker: https://hub.docker.com/_/postgres
-- Documentazione Vite: https://vitejs.dev/
-- Documentazione React: https://react.dev/
-- Docker Desktop: https://www.docker.com/products/docker-desktop
-- Documentazione Trello-Clone: consulta la cartella `docs/` per PRD, Analisi Funzionale e Tecnica.
+Il deploy (PM2 o `scripts/deploy.sh`), le variabili da controllare e i passi del primo rilascio sono nel [README](../README.md#deploy).

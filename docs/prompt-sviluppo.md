@@ -1,5 +1,7 @@
 # Trello Clone - Prompt per Sviluppo
 
+> **Nota del 25/11/2026.** Questo documento è la specifica di partenza. Il progetto usa **MySQL 8 con Sequelize** al posto di PostgreSQL, Prisma o TypeORM, e **non usa Redis**: un solo processo Node gestisce API e Socket.IO. Per lo stato attuale fanno fede il [README](../README.md) e il [CHANGELOG](../CHANGELOG.md).
+
 ## Ruolo
 
 Agisci come un Senior Full Stack Engineer esperto in architetture scalabili, React, Node.js, PostgreSQL e real-time con WebSocket.

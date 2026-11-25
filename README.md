@@ -1,566 +1,184 @@
-# Trello Clone – Enterprise-Ready Kanban Platform
+# Trello Clone
 
-[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/your-repo/trello-clone)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-336791.svg)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
+[![CI](https://github.com/AlexandruD18/Trello-Clone/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexandruD18/Trello-Clone/actions/workflows/ci.yml)
 
-Un clone open-source di Trello: una piattaforma Kanban collaborativa ad **alte prestazioni**, progettata con un'architettura moderna **orientata agli eventi** e un'interfaccia utente **reattiva in tempo reale**. Ideale per portfolio, educazione e deployment enterprise.
+Bacheca Kanban collaborativa: board, liste e card che si spostano col trascinamento, con checklist, commenti, etichette e scadenze. Chi guarda la stessa board vede le modifiche degli altri in tempo reale.
 
-**Versione:** 1.0 | **Data:** 24 novembre 2025 | **Autore:** Team di Sviluppo Trello Clone
+Progetto didattico e di portfolio. Non è affiliato ad Atlassian né a Trello, marchio registrato di Atlassian.
 
----
+## Cosa fa
 
-## 🚀 Quick Start
+- **Workspace e board**: ogni utente ha un workspace personale; le board stanno in un workspace e si possono archiviare e ripristinare.
+- **Liste e card** ordinate col trascinamento. L'ordine lo calcola il server, in transazione, quindi due persone che spostano insieme non si pestano i piedi.
+- **Card** con descrizione, scadenza, colore, etichette, persone assegnate, checklist e commenti.
+- **Membri e ruoli** per board: `viewer` legge, `member` modifica, `admin` gestisce impostazioni e persone. Chi fa parte del workspace vede anche le sue board.
+- **Tempo reale** con Socket.IO: liste, card, checklist e commenti si aggiornano negli altri browser senza ricaricare.
+- **Archivio**: board, liste e card archiviate restano consultabili in sola lettura e si possono ripristinare.
 
-Vuoi iniziare subito? Segui questi 3 step:
+## Stack
 
-```bash
-# 1. Clona il repo
-git clone https://github.com/your-repo/trello-clone.git
-cd Trello-Clone
+| Parte | Tecnologie |
+| --- | --- |
+| Client | React 18, React Router 7, Vite 7, Tailwind CSS 3, @dnd-kit, Socket.IO client |
+| Server | Node.js 20+, Express 4, Socket.IO 4, Sequelize 6, Umzug (migrazioni) |
+| Database | MySQL 8 |
+| Qualità | Vitest e Supertest, ESLint 9, Prettier, GitHub Actions, Dependabot |
 
-# 2. Avvia PostgreSQL e Redis con Docker
-docker run --name trello-db -p 5433:5432 -e POSTGRES_USER=trellouser -e POSTGRES_PASSWORD=CAMBIAMI -e POSTGRES_DB=trellodb -d postgres:alpine
-docker run --name trello-redis -p 6379:6379 -d redis:alpine
+## Avvio rapido
 
-# 3. Avvia server e client
-cd app/server && npm install && npm run dev  # Terminal 1
-cd app/client && npm install && npm run dev  # Terminal 2 (porta 5173)
-```
-
-**Per dettagli completi**, vedi [Guida Avvio Progetto](docs/guida-avvio-progetto.md).
-
----
-
-## 📑 Indice
-
-- [Overview](#-overview)
-- [Features at a Glance](#-features-at-a-glance)
-- [Stack Tecnologico](#-stack-tecnologico)
-- [Architettura](#-architettura)
-- [Project Structure](#-project-structure)
-- [Requisiti e Installazione](#-requisiti-e-installazione)
-- [API & WebSocket](#-api--websocket)
-- [Development](#-development)
-- [Performance Metrics](#-performance-metrics)
-- [Testing](#-testing)
-- [Contributing](#-contributing)
-- [Roadmap](#-roadmap)
-- [Troubleshooting](#-troubleshooting)
-- [Licenza](#-licenza)
-
----
-
-## 📌 Overview
-
-**Trellino** è un'implementazione **enterprise-ready** di una piattaforma di project management visuale ispirata a Trello. A differenza di cloni didattici superficiali, questo progetto affronta sfide reali:
-
-- ✅ **Concorrenza elevata** senza compromessi su performance (latenza < 150ms)
-- ✅ **Collaborazione real-time** con WebSocket e Pub/Sub
-- ✅ **Board massive** (1000+ card) con virtualizzazione
-- ✅ **Drag-and-drop fluido** con @dnd-kit e optimistic UI
-- ✅ **Architettura scalabile** con microservizi e event-driven design
-- ✅ **Sicurezza enterprise** (RBAC, transazioni atomiche, logging)
-
-Perfetto per **portfolio professionali**, **case study educativi** e **deployment enterprise**.
-
----
-
-## ⚡ Features at a Glance
-
-| Categoria                | Feature              | Dettagli                                      |
-| ------------------------ | -------------------- | --------------------------------------------- |
-| **Collaboration**        | Real-time Updates    | WebSocket, broadcast events < 150ms           |
-|                          | Workspace Management | Spazi isolati con permessi granulari (RBAC)   |
-|                          | Multi-user Editing   | Optimistic locking, conflict resolution       |
-| **Board Management**     | Board CRUD           | Create, read, update, delete board            |
-|                          | List Ordering        | Fractional Indexing per ordering stabile      |
-|                          | Card Details         | Markdown editor, checklist, assignees, labels |
-| **UX/Performance**       | Drag & Drop          | @dnd-kit, touch support, auto-scroll          |
-|                          | Virtualizzazione     | 1000+ card senza lag (TanStack Virtual)       |
-|                          | Responsive Design    | Mobile, tablet, desktop (WCAG 2.1 AA)         |
-| **Developer Experience** | TypeScript           | Type safety completo                          |
-|                          | Hot Reload           | Vite con refresh istantaneo                   |
-|                          | Testing              | Vitest, React Testing Library, Playwright     |
-
----
-
-## 🛠 Stack Tecnologico
-
-### Frontend
-
-```
-React 18+ (Concurrent Mode) + TypeScript
-    ↓
-Vite (build tool)
-    ↓
-TanStack Query (server state) + Zustand (UI state)
-    ↓
-Tailwind CSS + shadcn/ui (design system)
-    ↓
-@dnd-kit (drag-and-drop) + TanStack Virtual (virtualization)
-    ↓
-Socket.io-client (real-time)
-```
-
-**Perché:**
-
-- **React 18+:** Concurrent Mode, Suspense, fiber architecture per rendering efficiente.
-- **TypeScript:** Type safety, refactoring sicuro, DX eccellente.
-- **Vite:** Build 10x più veloce di Webpack, HMR istantaneo.
-- **TanStack Query:** Caching intelligente, sync automatica, optimistic updates.
-- **Zustand:** Lightweight, API semplice, performance superiore a Redux.
-- **@dnd-kit:** Accessibilità nativa, performance superiore, well-maintained.
-- **Bundle < 300KB gzipped:** Tree shaking, code splitting, lazy loading.
-
-### Backend
-
-```
-Node.js ≥ 18 + NestJS (o Express)
-    ↓
-PostgreSQL 14+ (ACID transactions)
-    ↓
-Redis 7+ (caching + Pub/Sub)
-    ↓
-Socket.io (WebSocket con fallback)
-    ↓
-JWT + Argon2 (authentication)
-```
-
-**Perché:**
-
-- **NestJS:** Architettura modulare, dependency injection, middleware built-in.
-- **PostgreSQL:** ACID compliance, JSONB, performance su query complesse.
-- **Redis Pub/Sub:** Multi-instance coordination, event broadcast.
-- **Socket.io:** Fallback HTTP long-polling, sticky sessions, namespaces.
-- **JWT:** Stateless auth, scalabilità orizzontale.
-- **Argon2:** Password hashing moderno, resistente a GPU attacks.
-
----
-
-## 🏗 Architettura
-
-### Frontend (Clean UI Architecture)
-
-```
-Pages (Route-based)
-    ↓
-Features (Auth, Boards, Cards)
-    ├── Components (UI atoms + molecules)
-    ├── Hooks (API calls, custom logic)
-    └── Stores (Zustand + TanStack Query)
-    ↓
-Lib (utilities, API client, socket handlers)
-```
-
-**Principi:**
-
-- **Feature-based:** Isolamento logico, fácil manutenzione.
-- **Colocation:** Logica e componenti insieme.
-- **Separation of Concerns:** UI state (Zustand) vs Server state (TanStack Query).
-
-### Backend (Event-Driven Microservices)
-
-```
-Client (WebSocket + REST)
-    ↓
-Load Balancer (sticky sessions)
-    ↓
-Gateway Server (WebSocket subscriptions)
-    ↓ Pub/Sub (Redis)
-    ├── API Server (REST, auth, CRUD)
-    ├── Board Service (ordering, locking)
-    └── Event Service (audit log)
-    ↓
-PostgreSQL (persistence)
-```
-
-**Benefici:**
-
-- **Decoupling:** Servizi indipendenti, scaling selettivo.
-- **Event-Driven:** Loose coupling, better testability.
-- **Optimistic Locking:** Risolve conflitti senza blocchi pesanti.
-
----
-
-## 📂 Project Structure
-
-```
-Trello-Clone/
-├── app/
-│   ├── server/                    # Backend NestJS
-│   │   ├── src/
-│   │   │   ├── auth/             # Autenticazione (JWT, guards)
-│   │   │   ├── workspaces/       # Workspace management
-│   │   │   ├── boards/           # Board CRUD, ordering logic
-│   │   │   ├── lists/            # Liste (CRUD, drag-drop)
-│   │   │   ├── cards/            # Card details, checklist
-│   │   │   ├── comments/         # Commenti e attività
-│   │   │   ├── socket/           # WebSocket handlers
-│   │   │   ├── database/         # Prisma schema, migrations
-│   │   │   └── config/           # Config, env validation
-│   │   ├── .env.example
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   │
-│   └── client/                    # Frontend React + Vite
-│       ├── src/
-│       │   ├── components/        # UI atoms, molecules, organisms
-│       │   ├── features/
-│       │   │   ├── auth/
-│       │   │   ├── boards/
-│       │   │   └── cards/
-│       │   ├── hooks/             # Custom hooks (API calls, UI)
-│       │   ├── stores/            # Zustand stores
-│       │   ├── lib/               # Utilities, API client
-│       │   ├── types/             # TypeScript types
-│       │   ├── App.tsx
-│       │   └── main.tsx
-│       ├── .env.example
-│       ├── package.json
-│       └── vite.config.ts
-│
-├── docs/
-│   ├── README.md                  # (questo file)
-│   ├── guida-avvio.md            # Step-by-step setup guide
-│   ├── prompt-sviluppo.md        # Development prompt
-│   ├── front-end/
-│   │   ├── prd.md                # Product Requirements
-│   │   ├── analisi-funzionale.md # Functional Analysis
-│   │   └── analisi-tecnica.md    # Technical Analysis
-│   └── back-end/
-│       ├── prd.md
-│       ├── analisi-funzionale.md
-│       └── analisi-tecnica.md
-│
-├── .gitignore
-├── LICENSE
-└── README.md
-```
-
----
-
-## 📋 Requisiti e Installazione
-
-### Prerequisiti
-
-- **Node.js** ≥ 18 (LTS recommended)
-- **PostgreSQL** ≥ 14 (o via Docker)
-- **Redis** ≥ 7 (o via Docker)
-- **Docker & Docker Compose** (optional, consigliato)
-
-Verifica versioni:
+Servono Node.js 20 o più recente e Docker (oppure un MySQL 8 già installato).
 
 ```bash
-node -v && npm -v && git --version
-```
-
-### Setup Completo (5 minuti)
-
-**1. Clone e accedi**
-
-```bash
-git clone https://github.com/your-repo/trello-clone.git
-cd Trello-Clone
-```
-
-**2. Database via Docker (opzionale)**
-
-```bash
-# PostgreSQL
-docker run --name trello-db -p 5433:5432 \
-  -e POSTGRES_USER=trellouser \
-  -e POSTGRES_PASSWORD=CAMBIAMI \
-  -e POSTGRES_DB=trellodb \
-  -d postgres:alpine
-
-# Redis
-docker run --name trello-redis -p 6379:6379 -d redis:alpine
-```
-
-**3. Variabili d'ambiente**
-
-`app/server/.env`:
-
-```env
-PORT=4000
-NODE_ENV=development
-
-# Database
-DB_HOST=localhost
-DB_PORT=5433
-DB_USER=trellouser
-DB_PASSWORD=CAMBIAMI
-DB_NAME=trellodb
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# Auth
-JWT_SECRET=your_super_secret_key_change_in_production
-
-# CORS
-CLIENT_URL=http://localhost:5173
-```
-
-`app/client/.env`:
-
-```env
-VITE_API_URL=http://localhost:4000
-VITE_WS_URL=ws://localhost:4000
-```
-
-**4. Installa dipendenze**
-
-```bash
-# Terminal 1: Server
-cd app/server
+# 1. Dipendenze (un solo comando per server e client: è un workspace npm)
 npm install
-npm run db:migrate  # Prisma migrations
-npm run dev
 
-# Terminal 2: Client
-cd app/client
-npm install
+# 2. Database MySQL in Docker, sulla porta 3307 per non scontrarsi con un MySQL locale
+docker run -d --name trello-mysql -p 3307:3306 \
+    -e MYSQL_RANDOM_ROOT_PASSWORD=yes \
+    -e MYSQL_DATABASE=trello -e MYSQL_USER=trello -e MYSQL_PASSWORD=scegli-una-password \
+    mysql:8.4
+
+# 3. Configurazione: copia il file d'esempio e compila JWT_SECRET, DB_PORT=3307, DB_PASSWORD
+cp app/server/.env.example app/server/.env
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"   # valore per JWT_SECRET
+
+# 4. Schema del database
+npm run db:migrate
+
+# 5. Server (porta 3000) e client (porta 5173) insieme
 npm run dev
 ```
 
-**5. Accedi**
+Apri <http://localhost:5173> e registrati. La [guida di avvio](docs/guida-avvio-progetto.md) spiega ogni passo e i problemi più comuni.
 
-- Frontend: http://localhost:5173
-- API: http://localhost:4000
+## Comandi
 
----
+Dalla radice del repository:
 
-## 🔌 API & WebSocket
+| Comando | Cosa fa |
+| --- | --- |
+| `npm run dev` | server con riavvio automatico e client Vite insieme |
+| `npm run build` | compila il client in `app/client/dist` |
+| `npm start` | avvia solo il server (in produzione serve anche il client compilato) |
+| `npm test` | test delle API e del tempo reale (richiede MySQL, vedi sotto) |
+| `npm run lint` | ESLint su server e client |
+| `npm run format` / `format:check` | Prettier: corregge / controlla la formattazione |
+| `npm run db:migrate` | applica le migrazioni in sospeso |
 
-### REST Endpoints
+Altri comandi del database, da lanciare in `app/server`: `npm run db:pending`, `npm run db:migrate:undo`, `npm run db:verifica` (confronta il database con i modelli). Le regole per scrivere migrazioni sono in [app/server/migrations/README.md](app/server/migrations/README.md).
 
-| Metodo  | Endpoint       | Descrizione                 |
-| ------- | -------------- | --------------------------- |
-| `POST`  | `/auth/signup` | Registrazione               |
-| `POST`  | `/auth/login`  | Login                       |
-| `GET`   | `/workspaces`  | Elenca workspace            |
-| `POST`  | `/boards`      | Crea board                  |
-| `GET`   | `/boards/:id`  | Dettagli board              |
-| `POST`  | `/lists`       | Crea lista                  |
-| `POST`  | `/cards`       | Crea card                   |
-| `PATCH` | `/cards/:id`   | Modifica card               |
-| `POST`  | `/cards/move`  | Sposta card (transazionale) |
+## Configurazione
 
-### WebSocket Events
+Tutte le variabili stanno in `app/server/.env`; [app/server/.env.example](app/server/.env.example) le documenta una per una.
 
-**Client → Server:**
+| Variabile | Predefinito | Note |
+| --- | --- | --- |
+| `JWT_SECRET` | nessuno | **obbligatoria**, almeno 32 caratteri; senza, il server non parte |
+| `PORT`, `HOST` | `3000`, `0.0.0.0` | |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | `127.0.0.1`, `3306`, `trello`, `trello`, vuota | |
+| `CORS_ORIGINS` | vuoto | origini esterne ammesse; vuoto = solo la stessa origine |
+| `TRUST_PROXY` | `false` | `1` se davanti c'è un proxy come nginx; un valore sbagliato rende aggirabile il rate limit |
+| `HTTPS` | `false` | `true` solo se il sito è in HTTPS: attiva cookie `Secure`, HSTS e `upgrade-insecure-requests` |
+| `AUTH_RATE_LIMIT` | `20` | tentativi di login e registrazione falliti per IP ogni 15 minuti |
+| `DB_LOGGING` | `false` | `true` per vedere le query SQL nel log |
 
-- `board:subscribe` - Sottoscrivi a board
-- `card:update` - Modifica card
-- `list:created` - Lista creata
+In sviluppo Vite inoltra `/api` e `/socket.io` a `API_TARGET` (predefinito `http://localhost:3000`).
 
-**Server → Client:**
+## Architettura
 
-- `board:update` - Board aggiornato
-- `card:moved` - Card spostata
-- `comment:new` - Nuovo commento
-
-Per dettagli, vedi `docs/back-end/analisi-tecnica.md`.
-
----
-
-## 💻 Development
-
-### Comandi Disponibili
-
-**Server:**
-
-```bash
-npm run dev           # Develop mode (hot reload)
-npm run build         # Build production
-npm run start         # Start production build
-npm run test          # Run tests
-npm run test:cov      # Coverage report
-npm run db:migrate    # Prisma migrations
-npm run db:push       # Sync schema
+```text
+app/
+├── client/                 React + Vite
+│   └── src/
+│       ├── pages/          Home, Board, Login, Registrazione
+│       ├── components/     Card, Lista, modale della card, layout
+│       ├── context/        sessione (AuthContext) e Socket.IO (SocketContext)
+│       └── lib/api.js      chiamate alle API, con il cookie di sessione
+└── server/                 Express + Socket.IO
+    ├── migrations/         schema del database (SQL, applicato da Umzug)
+    ├── src/
+    │   ├── app.js          app Express, sicurezza HTTP, route
+    │   ├── index.js        avvio: controlla database e migrazioni, poi ascolta
+    │   ├── config/         variabili d'ambiente e connessione MySQL
+    │   ├── middleware/     sessione (auth.js) e permessi (permessi.js)
+    │   ├── controllers/    logica delle API
+    │   ├── services/       posizioni di liste e card, riepiloghi delle card
+    │   ├── socket/         stanze per board ed eventi emessi dal server
+    │   └── models/         modelli Sequelize
+    └── test/               Vitest + Supertest, con un MySQL vero
 ```
 
-**Client:**
+Il percorso di una modifica, per esempio lo spostamento di una card:
+
+1. Il client manda `PUT /api/cards/:id/move` con la lista e l'indice di destinazione. Il cookie di sessione parte da solo.
+2. `authenticate` legge il cookie; `autorizza('card', …, 'member')` risale dalla card alla board e controlla il ruolo e che niente sia archiviato.
+3. Il controller blocca le liste coinvolte, calcola la posizione tra le due card vicine e salva, tutto in una transazione.
+4. Dopo il salvataggio il server manda `card:moved` a chi guarda la board, tranne a chi ha fatto la modifica (header `X-Socket-Id`).
+
+I client non inviano mai eventi di modifica via socket: possono solo entrare e uscire dalla stanza di una board, e il server controlla prima che ne abbiano il diritto.
+
+## API
+
+Tutte le route stanno sotto `/api` e, tranne registrazione, login e `health`, richiedono la sessione.
+
+| Risorsa | Route |
+| --- | --- |
+| Sessione | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `POST /auth/logout-all` |
+| Workspace | `GET /workspaces`, `GET/PUT/DELETE /workspaces/:id`, `POST /workspaces` |
+| Board | `GET /boards` (`?workspaceId=`, `?archiviate=true`), `GET/PUT/DELETE /boards/:id`, `POST /boards`, `POST /boards/:id/restore`, `GET /boards/:id/archiviati` |
+| Membri | `POST /boards/:id/members`, `PUT/DELETE /boards/:id/members/:userId` |
+| Liste | `POST /lists`, `PUT/DELETE /lists/:id`, `PUT /lists/:id/move`, `POST /lists/:id/restore` |
+| Card | `GET/PUT/DELETE /cards/:id`, `POST /cards`, `PUT /cards/:id/move`, `POST /cards/:id/restore`, membri ed etichette in `/cards/:id/members` e `/cards/:id/labels` |
+| Checklist | `POST /checklists`, `PUT/DELETE /checklists/:id`, elementi in `/checklists/items` |
+| Commenti ed etichette | `/comments` (`?cardId=`), `/labels` (`?boardId=`) |
+
+Eventi Socket.IO inviati dal server a chi segue una board: `list:created`, `list:updated`, `list:moved`, `list:deleted`, `card:created`, `card:updated`, `card:moved`, `card:deleted`, `board:refresh` (ricaricare tutto), `board:accesso-revocato`, `user:joined`, `user:left`.
+
+## Sicurezza
+
+- **Sessione** in un cookie `httpOnly` e `SameSite=Lax`, con `Secure` in HTTPS: gli script della pagina non possono leggerla. "Esci da tutti i dispositivi" invalida ogni sessione aperta.
+- **CSRF e WebSocket da altri siti**: le richieste che modificano dati e le connessioni Socket.IO sono accettate solo dalla stessa origine o da `CORS_ORIGINS`.
+- **Permessi** controllati su ogni risorsa, anche quando si passa da un id all'altro: lista, card, checklist, commento ed etichetta risalgono alla loro board.
+- **Dati personali**: password ed email non escono dalle API; l'email si vede solo nel proprio profilo.
+- **Protezioni HTTP** con helmet (CSP compresa), rate limit su login, registrazione e inviti, corpo delle richieste limitato a 100 kB.
+
+Ogni PR delicata (sessione, permessi, migrazioni) è stata rivista da un revisore separato prima del merge; i rapporti sono in [docs/revisioni](docs/revisioni).
+
+## Test e CI
+
+I test girano su un database MySQL dedicato, ricreato con le migrazioni all'inizio di ogni file. In locale, con il container dell'avvio rapido:
 
 ```bash
-npm run dev           # Dev server (Vite)
-npm run build         # Build production
-npm run preview       # Preview build locally
-npm run test          # Vitest unit tests
-npm run test:e2e      # Playwright E2E
-npm run lint          # ESLint check
+docker exec trello-mysql mysql -uroot -p -e "CREATE DATABASE trello_test; GRANT ALL ON trello_test.* TO 'trello'@'%';"
+DB_PASSWORD=scegli-una-password npm test
 ```
 
-### Development Workflow
+Il setup dei test si rifiuta di partire su un database il cui nome non contiene `test` come parola.
 
-1. **Branch naming:** `feature/board-drag-drop`, `fix/card-update-bug`
-2. **Commit:** Conventional commits (`feat:`, `fix:`, `docs:`)
-3. **PR:** Link issue, descrivi changes, add tests
-4. **Review:** Almeno 1 approval prima di merge
+Su ogni pull request GitHub Actions esegue lint e formattazione, i test con un MySQL usa e getta e la build del client. `main` accetta solo pull request con i tre controlli verdi.
 
----
+## Deploy
 
-## 📊 Performance Metrics
+In produzione un solo processo Node serve API, Socket.IO e il client compilato.
 
-| Metrica                | Target         | Stato |
-| ---------------------- | -------------- | ----- |
-| First Contentful Paint | < 1.5s         | ✅    |
-| Time to Interactive    | < 2.5s         | ✅    |
-| Lighthouse Performance | ≥ 90           | ✅    |
-| WebSocket Latency      | < 150ms        | ✅    |
-| Bundle Size (gzipped)  | < 300KB        | ✅    |
-| Board with 1000+ cards | < 100ms render | ✅    |
+- Con **PM2**: `DEPLOY_HOST=… DEPLOY_USER=… pm2 deploy ecosystem.config.js production`.
+- Con lo **script**: `DEPLOY_HOST=… DEPLOY_USER=… scripts/deploy.sh` compila il client, copia il pacchetto sul server, installa, esegue le migrazioni e riavvia con PM2.
 
-**Tools:**
+Prima del primo deploy di questa versione:
 
-- Lighthouse CI (automated scoring)
-- Sentry (error tracking)
-- Redis Commander (Pub/Sub monitoring)
+1. in `app/server/.env` del server: `JWT_SECRET` lungo, `DB_USER` e `DB_PORT` espliciti, `TRUST_PROXY` e `HTTPS` corretti per la propria installazione;
+2. `npm run db:verifica` sul database esistente, per controllare che corrisponda ai modelli;
+3. le migrazioni partono da sole nel deploy; il server non si avvia se ne manca qualcuna.
 
----
+Dopo il deploy tutti devono rifare il login: la sessione ora sta in un cookie.
 
-## 🧪 Testing
+## Documentazione
 
-### Test Coverage
+- [Guida di avvio](docs/guida-avvio-progetto.md): installazione passo per passo e problemi comuni
+- [Analisi e PRD](docs/): documenti di partenza del progetto, back-end e front-end
+- [Revisioni](docs/revisioni): rapporti delle revisioni di sicurezza e del codice
+- [CHANGELOG](CHANGELOG.md)
 
-| Layer           | Tool                              | Comando            |
-| --------------- | --------------------------------- | ------------------ |
-| **Unit**        | Vitest (Frontend), Jest (Backend) | `npm run test`     |
-| **Integration** | React Testing Library             | `npm run test`     |
-| **E2E**         | Playwright                        | `npm run test:e2e` |
+## Licenza
 
-### Test di Concorrenza
-
-```bash
-# Simula 10 utenti simultanei
-npm run test:load -- --users=10
-```
-
----
-
-## 🤝 Contributing
-
-Contributi benvenuti! Segui questi step:
-
-1. **Fork** il repo
-2. **Crea branch:** `git checkout -b feature/my-feature`
-3. **Commit:** `git commit -m 'feat: aggiungi nuova feature'`
-4. **Push:** `git push origin feature/my-feature`
-5. **PR:** Descrivi changes, link issue, add tests
-
-**Linee Guida:**
-
-- ESLint + Prettier (automatic on commit)
-- Test obbligatori per nuove features
-- Aggiorna documentazione
-- Conventional commits
-
----
-
-## 📈 Roadmap
-
-### ✅ Completato
-
-- [x] Autenticazione e Workspace
-- [x] Board, Liste, Card (CRUD)
-- [x] Drag & Drop Real-time
-- [x] Commenti e Checklist
-- [x] Audit log base
-
-### 🔄 In Progress
-
-- [ ] Notifiche Push (Firebase/APNs)
-- [ ] Upload Allegati (S3/MinIO)
-
-### 📋 Future
-
-- [ ] Power-ups e Automazioni
-- [ ] Mobile App (React Native)
-- [ ] Integrazioni API (Slack, GitHub, Zapier)
-- [ ] Calendario e viste alternative
-- [ ] Timeline e Gantt charts
-
----
-
-## 🆘 Troubleshooting
-
-### Database
-
-**Errore:** `ECONNREFUSED 127.0.0.1:5432`
-
-```bash
-# Soluzione: Avvia Docker
-docker start trello-db
-# Verifica
-docker ps | grep trello-db
-```
-
-**Errore:** `Database already exists`
-
-```bash
-# Rimuovi e ricrea
-docker rm trello-db
-docker run --name trello-db -p 5433:5432 ... (vedi Quick Start)
-```
-
-### WebSocket
-
-**Errore:** `WebSocket connection failed`
-
-- Verifica `VITE_WS_URL` nel client .env
-- Assicurati server sia su http://localhost:4000
-- Controlla CORS lato server
-
-### Performance
-
-**Problema:** Board lenta con molte card
-
-- Attiva virtualizzazione (TanStack Virtual)
-- Usa pagination sul backend
-- Abilita Redis caching
-
-**Problema:** Drag-and-drop laggy
-
-- Riduci numero di componenti remoti
-- Usa React.memo per List e Card
-- Disabilita animations non critiche
-
----
-
-## 📚 Documentazione
-
-- **[Guida Avvio](docs/guida-avvio.md)** - Setup step-by-step
-- **[Prompt Sviluppo](docs/prompt-sviluppo.md)** - Instructions per AI
-- **[PRD Frontend](docs/front-end/prd.md)** - Product Requirements
-- **[Analisi Tecnica](docs/back-end/analisi-tecnica.md)** - Architecture deep-dive
-
----
-
-## 📄 Licenza
-
-Distribuito sotto [Licenza MIT](LICENSE). Vedi file LICENSE per dettagli.
-
----
-
-## 🙏 Acknowledgments
-
-- Ispirato da **Trello** per UX eccellente
-- Built with ❤️ usando **React**, **TanStack**, **@dnd-kit**, **PostgreSQL**
-- Grazie a community open-source per feedback
-
----
-
-## 📞 Support
-
-- **Issues:** [GitHub Issues](https://github.com/your-repo/trello-clone/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/your-repo/trello-clone/discussions)
-- **Email:** dev@trello-clone.io
-
----
-
-**Made with 🚀 for developers who care about quality.**
+[MIT](LICENSE). Autore: Alexandru Mihai Dimofte.
