@@ -52,11 +52,9 @@ const addBoardMember = async (req, res) => {
 
         const user = await User.findOne({ where: { email: normalizzaEmail(email) } });
         if (!user) {
-            return res
-                .status(404)
-                .json({
-                    error: 'Nessun account con questa email: chiedi alla persona di registrarsi',
-                });
+            return res.status(404).json({
+                error: 'Nessun account con questa email: chiedi alla persona di registrarsi',
+            });
         }
 
         const [membro, creato] = await BoardMember.findOrCreate({
