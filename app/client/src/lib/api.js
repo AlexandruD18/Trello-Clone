@@ -1,5 +1,11 @@
 const API_BASE_URL = '/api';
 
+// Id del socket di questa scheda: il server non ci rimanda gli eventi delle nostre modifiche.
+let socketId = null;
+export const impostaSocketId = (id) => {
+    socketId = id;
+};
+
 const api = {
     async request(method, endpoint, data = null) {
         const token = localStorage.getItem('token');
@@ -9,6 +15,7 @@ const api = {
             headers: {
                 'Content-Type': 'application/json',
                 ...(token && { Authorization: `Bearer ${token}` }),
+                ...(socketId && { 'X-Socket-Id': socketId }),
             },
         };
 
