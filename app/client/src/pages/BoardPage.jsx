@@ -65,6 +65,10 @@ function BoardPage() {
         if (!socket) return;
 
         const handlers = {
+            // Un admin ci ha tolto dalla board: non c'è più niente da mostrare qui.
+            'board:accesso-revocato': () => {
+                navigate('/', { replace: true });
+            },
             'list:created': (data) => {
                 setLists((prev) => [...prev, { ...data.list, cards: [] }]);
             },

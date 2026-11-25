@@ -54,4 +54,26 @@ const inviaCard = async (req, boardId, cardId) => {
     if (card) notificaBoard(req, boardId, 'card:updated', { card });
 };
 
-module.exports = { impostaIo, notificaBoard, notificaCard, stanzaBoard };
+// Controllo dell'accesso dei socket già collegati: lo registra socketHandler, che
+// conosce le stanze e la presenza. Si chiama dopo aver cambiato ruoli o membri.
+let controlloAccesso = null;
+const impostaControlloAccesso = (funzione) => {
+    controlloAccesso = funzione;
+};
+const verificaAccessoSocket = async (board, userId) => {
+    if (!controlloAccesso) return;
+    try {
+        await controlloAccesso(board, userId);
+    } catch (error) {
+        console.error('Controllo accesso socket non riuscito:', error);
+    }
+};
+
+module.exports = {
+    impostaIo,
+    notificaBoard,
+    notificaCard,
+    stanzaBoard,
+    impostaControlloAccesso,
+    verificaAccessoSocket,
+};

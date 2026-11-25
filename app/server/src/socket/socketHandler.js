@@ -1,7 +1,7 @@
 const { verifyToken } = require('../middleware/auth');
 const { Board } = require('../models');
 const { ruoloBoard } = require('../middleware/permessi');
-const { impostaIo, stanzaBoard } = require('./eventi');
+const { impostaIo, stanzaBoard, impostaControlloAccesso } = require('./eventi');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,6 +50,21 @@ const setupSocketHandlers = (io) => {
             io.to(stanza).emit('user:left', { boardId, userId: socket.userId, users });
         }
     };
+
+    // Chi non ha più accesso a una board esce subito dalla sua stanza.
+    impostaControlloAccesso(async (board, userId) => {
+        const stanza = stanzaBoard(board.id);
+        const coinvolti = [...io.of('/').sockets.values()].filter(
+            (s) => s.userId === userId && s.rooms.has(stanza)
+        );
+        if (coinvolti.length === 0) return;
+        if (await ruoloBoard(userId, board)) return;
+        for (const s of coinvolti) {
+            esci(s, board.id);
+            if (s.data.boardRichiesta === board.id) s.data.boardRichiesta = null;
+            s.emit('board:accesso-revocato', { boardId: board.id });
+        }
+    });
 
     io.on('connection', (socket) => {
         // Alla scadenza del token il socket si chiude: serve un nuovo login.
