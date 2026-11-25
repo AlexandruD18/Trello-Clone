@@ -37,32 +37,40 @@ const ruoloBoard = async (userId, board) => {
     return ruoli.reduce((a, b) => (LIVELLI[a] >= LIVELLI[b] ? a : b));
 };
 
-// Da qualunque risorsa risale alla board che la contiene.
-const BOARD_DI = {
-    board: async (id) => Board.findByPk(id),
+// Da qualunque risorsa risale alla board che la contiene e segnala se lungo la
+// strada c'è qualcosa di archiviato (la lista o la card stessa).
+const ARCHIVIATO = { board: null, archiviato: false };
+const conArchivio = (contesto, archiviato) =>
+    contesto && { ...contesto, archiviato: contesto.archiviato || Boolean(archiviato) };
+
+const CONTESTO_DI = {
+    board: async (id) => {
+        const board = await Board.findByPk(id);
+        return board && { ...ARCHIVIATO, board };
+    },
     list: async (id) => {
-        const list = await List.findByPk(id, { attributes: ['boardId'] });
-        return list && Board.findByPk(list.boardId);
+        const list = await List.findByPk(id, { attributes: ['boardId', 'isArchived'] });
+        return list && conArchivio(await CONTESTO_DI.board(list.boardId), list.isArchived);
     },
     card: async (id) => {
-        const card = await Card.findByPk(id, { attributes: ['listId'] });
-        return card && BOARD_DI.list(card.listId);
+        const card = await Card.findByPk(id, { attributes: ['listId', 'isArchived'] });
+        return card && conArchivio(await CONTESTO_DI.list(card.listId), card.isArchived);
     },
     checklist: async (id) => {
         const checklist = await Checklist.findByPk(id, { attributes: ['cardId'] });
-        return checklist && BOARD_DI.card(checklist.cardId);
+        return checklist && CONTESTO_DI.card(checklist.cardId);
     },
     checklistItem: async (id) => {
         const item = await ChecklistItem.findByPk(id, { attributes: ['checklistId'] });
-        return item && BOARD_DI.checklist(item.checklistId);
+        return item && CONTESTO_DI.checklist(item.checklistId);
     },
     comment: async (id) => {
         const comment = await Comment.findByPk(id, { attributes: ['cardId'] });
-        return comment && BOARD_DI.card(comment.cardId);
+        return comment && CONTESTO_DI.card(comment.cardId);
     },
     label: async (id) => {
         const label = await Label.findByPk(id, { attributes: ['boardId'] });
-        return label && Board.findByPk(label.boardId);
+        return label && CONTESTO_DI.board(label.boardId);
     },
 };
 
@@ -82,10 +90,15 @@ const NON_TROVATO = {
  * @param {keyof NON_TROVATO} risorsa tipo di risorsa
  * @param {(req) => string} leggiId da dove prendere l'id (params, body o query)
  * @param {'viewer'|'member'|'admin'} minimo ruolo minimo richiesto
+ * @param {{ ancheArchiviata?: boolean }} [opzioni] ancheArchiviata: la modifica è
+ *   ammessa anche su risorse archiviate (serve al ripristino). Attenzione: salta il
+ *   controllo su tutta la catena, non solo sulla risorsa; un futuro ripristino di
+ *   card o liste deve controllare a parte che board e lista sopra siano attive.
+ * Le board, le liste e le card archiviate si possono solo leggere.
  * Imposta req.board e req.boardRole (oppure req.workspace e req.workspaceRole).
  */
 const autorizza =
-    (risorsa, leggiId, minimo = 'viewer') =>
+    (risorsa, leggiId, minimo = 'viewer', { ancheArchiviata = false } = {}) =>
     async (req, res, next) => {
         try {
             const id = leggiId(req);
@@ -107,11 +120,20 @@ const autorizza =
                 return next();
             }
 
-            const board = await BOARD_DI[risorsa](id);
-            if (!board) return res.status(404).json({ error: NON_TROVATO[risorsa] });
+            const contesto = await CONTESTO_DI[risorsa](id);
+            if (!contesto) return res.status(404).json({ error: NON_TROVATO[risorsa] });
+            const { board } = contesto;
             const ruolo = await ruoloBoard(req.userId, board);
             if (!haRuolo(ruolo, minimo)) {
                 return res.status(403).json({ error: 'Non hai i permessi per questa board' });
+            }
+            const archiviata = board.isArchived || contesto.archiviato;
+            if (minimo !== 'viewer' && archiviata && !ancheArchiviata) {
+                return res.status(403).json({
+                    error: board.isArchived
+                        ? 'La board è archiviata: puoi consultarla, non modificarla'
+                        : 'Questo elemento è archiviato: puoi consultarlo, non modificarlo',
+                });
             }
             req.board = board;
             req.boardRole = ruolo;
@@ -136,5 +158,5 @@ module.exports = {
     daQuery,
     ruoloBoard,
     ruoloWorkspace,
-    boardDi: BOARD_DI,
+    contestoDi: CONTESTO_DI,
 };
