@@ -101,6 +101,70 @@ describe('ordinamento di liste e card', () => {
         expect(new Set(posizioni).size).toBe(posizioni.length);
     });
 
+    it('regge spostamenti incrociati tra due liste senza errori', async () => {
+        const sinistra = await creaLista('Sinistra');
+        const destra = await creaLista('Destra');
+        const daSinistra = [];
+        const daDestra = [];
+        for (let i = 0; i < 4; i += 1) {
+            daSinistra.push(await creaCard(`S${i}`, sinistra.id));
+            daDestra.push(await creaCard(`D${i}`, destra.id));
+        }
+
+        for (let giro = 0; giro < 3; giro += 1) {
+            const richieste = [
+                ...daSinistra.map((c) => sposta(c.id, destra.id, 0)),
+                ...daDestra.map((c) => sposta(c.id, sinistra.id, 0)),
+            ];
+            const stati = (await Promise.all(richieste)).map((r) => r.status);
+            expect(stati.every((st) => st === 200)).toBe(true);
+            // Al giro dopo le card tornano indietro: ogni gruppo ora sta nell'altra lista.
+            const scambio = daSinistra.splice(0, daSinistra.length, ...daDestra);
+            daDestra.splice(0, daDestra.length, ...scambio);
+        }
+    });
+
+    it('regge più card spostate insieme in una lista vuota', async () => {
+        const vuota = await creaLista('Vuota');
+        const piena = await creaLista('Piena');
+        const card = [];
+        for (let i = 0; i < 5; i += 1) card.push(await creaCard(`V${i}`, piena.id));
+
+        const risposte = await Promise.all(card.map((c) => sposta(c.id, vuota.id, 0)));
+        expect(risposte.map((r) => r.status)).toEqual([200, 200, 200, 200, 200]);
+
+        const res = await api().get(`/api/boards/${board.id}`).set(anna.auth);
+        const posizioni = res.body.lists
+            .find((l) => l.name === 'Vuota')
+            .cards.map((c) => c.position);
+        expect(posizioni).toHaveLength(5);
+        expect(new Set(posizioni).size).toBe(5);
+    });
+
+    it('non dà la stessa posizione a card create insieme', async () => {
+        const lista = await creaLista('Creazioni');
+        const risposte = await Promise.all(
+            Array.from({ length: 6 }, (_, i) =>
+                api()
+                    .post('/api/cards')
+                    .set(anna.auth)
+                    .send({ title: `K${i}`, listId: lista.id })
+            )
+        );
+        expect(risposte.every((r) => r.status === 201)).toBe(true);
+        const posizioni = risposte.map((r) => r.body.position);
+        expect(new Set(posizioni).size).toBe(6);
+    });
+
+    it('non sposta una card in una lista archiviata', async () => {
+        const archiviata = await creaLista('Archiviata');
+        const attiva = await creaLista('Attiva');
+        const card = await creaCard('W', attiva.id);
+        await api().delete(`/api/lists/${archiviata.id}`).set(anna.auth);
+
+        expect((await sposta(card.id, archiviata.id, 0)).status).toBe(400);
+    });
+
     it('riordina le liste e salva l’ordine', async () => {
         const nuova = await creaLista('Nuova in fondo');
         const res = await api()

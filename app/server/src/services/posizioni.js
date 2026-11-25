@@ -55,6 +55,55 @@ const posizionePerIndice = async ({ modello, dove, escludi, indice, transaction 
     return { posizione: (i + 1) * PASSO, rinumerati: true };
 };
 
+// Blocca le righe dei contenitori (liste o board) sempre in ordine di id: chi sposta
+// tra due liste e chi sposta nel verso opposto si mettono in fila invece di
+// bloccarsi a vicenda. Va chiamata come prima cosa nella transazione.
+const bloccaContenitori = async (modello, ids, transaction) => {
+    const unici = [...new Set(ids.filter(Boolean))].sort();
+    if (unici.length === 0) return [];
+    return modello.findAll({
+        where: { id: unici },
+        order: [['id', 'ASC']],
+        lock: transaction.LOCK.UPDATE,
+        transaction,
+    });
+};
+
+const ERRORI_RIPETIBILI = new Set(['ER_LOCK_DEADLOCK', 'ER_LOCK_WAIT_TIMEOUT']);
+const ripetibile = (errore) =>
+    ERRORI_RIPETIBILI.has(errore?.parent?.code || errore?.original?.code || errore?.code);
+
+class ConflittoConcorrenza extends Error {
+    constructor() {
+        super('Troppe modifiche contemporanee: riprova');
+        this.status = 409;
+    }
+}
+
+/**
+ * Esegue una transazione e la ripete (fino a 3 volte, con una breve attesa) se MySQL
+ * la interrompe per un deadlock. Se non riesce ancora, lancia ConflittoConcorrenza.
+ */
+const transazioneConRiprova = async (sequelize, lavoro, tentativi = 3) => {
+    for (let i = 1; ; i += 1) {
+        try {
+            return await sequelize.transaction(lavoro);
+        } catch (errore) {
+            if (!ripetibile(errore)) throw errore;
+            if (i >= tentativi) throw new ConflittoConcorrenza();
+            await new Promise((r) => setTimeout(r, 20 * i + Math.random() * 30));
+        }
+    }
+};
+
 const indiceValido = (valore) => Number.isInteger(valore) && valore >= 0 && valore <= 100000;
 
-module.exports = { posizionePerIndice, indiceValido, PASSO, SCARTO_MINIMO };
+module.exports = {
+    posizionePerIndice,
+    bloccaContenitori,
+    transazioneConRiprova,
+    ConflittoConcorrenza,
+    indiceValido,
+    PASSO,
+    SCARTO_MINIMO,
+};

@@ -10,7 +10,12 @@ const {
     Comment,
     sequelize,
 } = require('../models');
-const { posizionePerIndice, indiceValido } = require('../services/posizioni');
+const {
+    posizionePerIndice,
+    bloccaContenitori,
+    transazioneConRiprova,
+    indiceValido,
+} = require('../services/posizioni');
 const { notificaBoard, notificaCard } = require('../socket/eventi');
 const { ruoloBoard, isUuid } = require('../middleware/permessi');
 
@@ -55,18 +60,20 @@ const createCard = async (req, res) => {
             return res.status(400).json({ error: 'Title and listId are required' });
         }
 
-        const lastCard = await Card.findOne({
-            where: { listId, isArchived: false },
-            order: [['position', 'DESC']],
-        });
-
-        const position = lastCard ? lastCard.position + 65536 : 65536;
-
-        const card = await Card.create({
-            title,
-            description,
-            listId,
-            position,
+        // In fondo alla lista, con la lista bloccata: due creazioni insieme non
+        // prendono la stessa posizione.
+        const card = await transazioneConRiprova(sequelize, async (transaction) => {
+            await bloccaContenitori(List, [listId], transaction);
+            const { posizione } = await posizionePerIndice({
+                modello: Card,
+                dove: { listId, isArchived: false },
+                indice: Number.MAX_SAFE_INTEGER,
+                transaction,
+            });
+            return Card.create(
+                { title, description, listId, position: posizione },
+                { transaction }
+            );
         });
 
         const fullCard = await Card.findByPk(card.id, {
@@ -86,6 +93,9 @@ const createCard = async (req, res) => {
 
         res.status(201).json(fullCard);
     } catch (error) {
+        if (error.status === 409) {
+            return res.status(409).json({ error: error.message });
+        }
         console.error('Create card error:', error);
         res.status(500).json({ error: 'Failed to create card' });
     }
@@ -138,14 +148,36 @@ const moveCard = async (req, res) => {
             return res.status(400).json({ error: 'Lista di destinazione non valida' });
         }
 
-        const esito = await sequelize.transaction(async (transaction) => {
-            const card = await Card.findByPk(req.params.id, { transaction });
-            if (!card) return { stato: 404, errore: 'Card not found' };
+        const esito = await transazioneConRiprova(sequelize, async (transaction) => {
+            const partenza = await Card.findByPk(req.params.id, {
+                attributes: ['listId'],
+                transaction,
+            });
+            if (!partenza) return { stato: 404, errore: 'Card not found' };
 
-            // La lista di destinazione deve stare nella stessa board della card.
-            const destinazione = await List.findByPk(listId || card.listId, { transaction });
+            // Prima le due liste, in ordine di id: gli spostamenti incrociati si mettono in fila.
+            const idDestinazione = listId || partenza.listId;
+            const liste = await bloccaContenitori(
+                List,
+                [partenza.listId, idDestinazione],
+                transaction
+            );
+            const destinazione = liste.find((l) => l.id === idDestinazione);
+
+            // La lista di destinazione deve stare nella stessa board della card ed essere attiva.
             if (!destinazione || destinazione.boardId !== req.board.id) {
                 return { stato: 400, errore: 'La lista di destinazione non è in questa board' };
+            }
+            if (destinazione.isArchived) {
+                return { stato: 400, errore: 'La lista di destinazione è archiviata' };
+            }
+
+            const card = await Card.findByPk(req.params.id, {
+                lock: transaction.LOCK.UPDATE,
+                transaction,
+            });
+            if (!card || card.listId !== partenza.listId) {
+                return { stato: 409, errore: 'La card è stata spostata nel frattempo: riprova' };
             }
 
             const { posizione, rinumerati } = await posizionePerIndice({
@@ -191,6 +223,9 @@ const moveCard = async (req, res) => {
 
         res.json({ ...fullCard.toJSON(), rinumerati });
     } catch (error) {
+        if (error.status === 409) {
+            return res.status(409).json({ error: error.message });
+        }
         console.error('Move card error:', error);
         res.status(500).json({ error: 'Failed to move card' });
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     DndContext,
@@ -22,6 +22,9 @@ import List from '../components/List';
 import Card from '../components/Card';
 import CardModal from '../components/CardModal';
 import { ArrowLeft, Loader2, Plus, LogOut, User } from 'lucide-react';
+
+// Stesso ordine del server: per posizione e, a parità, per id.
+const perPosizione = (a, b) => a.position - b.position || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 function BoardPage() {
     const { boardId, cardId } = useParams();
@@ -77,7 +80,7 @@ function BoardPage() {
                 setLists((prev) =>
                     prev
                         .map((l) => (l.id === data.listId ? { ...l, position: data.position } : l))
-                        .sort((a, b) => a.position - b.position)
+                        .sort(perPosizione)
                 );
             },
             // Il server ha rinumerato le posizioni: si riparte dai dati salvati.
@@ -121,7 +124,7 @@ function BoardPage() {
                             ];
                             return {
                                 ...l,
-                                cards: updatedCards.sort((a, b) => a.position - b.position),
+                                cards: updatedCards.sort(perPosizione),
                             };
                         }
                         return l;
@@ -156,12 +159,10 @@ function BoardPage() {
         try {
             const res = await api.get(`/boards/${boardId}`);
             setBoard(res.data);
-            const sortedLists = (res.data.lists || [])
-                .sort((a, b) => a.position - b.position)
-                .map((list) => ({
-                    ...list,
-                    cards: (list.cards || []).sort((a, b) => a.position - b.position),
-                }));
+            const sortedLists = (res.data.lists || []).sort(perPosizione).map((list) => ({
+                ...list,
+                cards: (list.cards || []).sort(perPosizione),
+            }));
             setLists(sortedLists);
         } catch (error) {
             console.error('Failed to load board:', error);
@@ -261,14 +262,31 @@ function BoardPage() {
         return null;
     };
 
+    // Com'era la board all'inizio del trascinamento: serve per tornare indietro se
+    // l'utente annulla (Esc) o lascia la card fuori da ogni lista.
+    const inizioTrascinamento = useRef(null);
+
     const handleDragStart = (event) => {
         const { active } = event;
         const type = active.data.current?.type;
 
         if (type === 'card') {
             const result = findCard(active.id);
-            if (result) setActiveCard(result.card);
+            if (result) {
+                setActiveCard(result.card);
+                inizioTrascinamento.current = {
+                    lists,
+                    listId: result.list.id,
+                    index: (result.list.cards || []).findIndex((c) => c.id === active.id),
+                };
+            }
         }
+    };
+
+    const ripristinaTrascinamento = () => {
+        setActiveCard(null);
+        if (inizioTrascinamento.current) setLists(inizioTrascinamento.current.lists);
+        inizioTrascinamento.current = null;
     };
 
     const handleDragOver = (event) => {
@@ -321,8 +339,13 @@ function BoardPage() {
         const { active, over } = event;
 
         setActiveCard(null);
+        const inizio = inizioTrascinamento.current;
+        inizioTrascinamento.current = null;
 
-        if (!over) return;
+        if (!over) {
+            if (inizio) setLists(inizio.lists);
+            return;
+        }
 
         const activeType = active.data.current?.type;
         const overType = over.data.current?.type;
@@ -371,13 +394,17 @@ function BoardPage() {
                 );
             }
 
+            // Tornata dov'era: niente da salvare.
+            if (inizio && inizio.listId === targetListId && inizio.index === newIndex) return;
+
             try {
                 const res = await api.put(`/cards/${active.id}/move`, {
                     listId: targetListId,
                     index: newIndex,
                 });
-                if (res.data.rinumerati) loadBoard();
-                else handleCardUpdate({ ...result.card, ...res.data });
+                const { rinumerati, ...salvata } = res.data;
+                if (rinumerati) loadBoard();
+                else handleCardUpdate({ ...result.card, ...salvata });
             } catch (error) {
                 console.error('Failed to move card:', error);
                 loadBoard();
@@ -450,6 +477,7 @@ function BoardPage() {
                     onDragStart={handleDragStart}
                     onDragOver={handleDragOver}
                     onDragEnd={handleDragEnd}
+                    onDragCancel={ripristinaTrascinamento}
                 >
                     <SortableContext
                         items={lists.map((l) => l.id)}
