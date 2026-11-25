@@ -1,4 +1,4 @@
-const { verifyToken } = require('../middleware/auth');
+const { tokenDaCookie, utenteDaToken } = require('../middleware/auth');
 const { Board } = require('../models');
 const { ruoloBoard } = require('../middleware/permessi');
 const { impostaIo, stanzaBoard } = require('./eventi');
@@ -18,15 +18,17 @@ const rispondi = (ack, esito) => {
 const setupSocketHandlers = (io) => {
     impostaIo(io);
 
-    io.use((socket, next) => {
-        const token = socket.handshake.auth && socket.handshake.auth.token;
+    // Il socket usa lo stesso cookie httpOnly delle API.
+    io.use(async (socket, next) => {
+        const token = tokenDaCookie(socket.handshake.headers.cookie);
         if (!token) {
             return next(new Error('Authentication error'));
         }
         try {
-            const payload = verifyToken(token);
-            socket.userId = payload.userId;
-            socket.data.scadenza = payload.exp ? payload.exp * 1000 : null;
+            const sessione = await utenteDaToken(token);
+            if (!sessione) return next(new Error('Authentication error'));
+            socket.userId = sessione.user.id;
+            socket.data.scadenza = sessione.payload.exp ? sessione.payload.exp * 1000 : null;
             next();
         } catch {
             next(new Error('Authentication error'));

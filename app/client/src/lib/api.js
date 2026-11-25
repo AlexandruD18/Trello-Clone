@@ -8,13 +8,12 @@ export const impostaSocketId = (id) => {
 
 const api = {
     async request(method, endpoint, data = null) {
-        const token = localStorage.getItem('token');
-
+        // Il cookie di sessione parte da solo (stessa origine): niente token in JavaScript.
         const config = {
             method,
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
-                ...(token && { Authorization: `Bearer ${token}` }),
                 ...(socketId && { 'X-Socket-Id': socketId }),
             },
         };

@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { impostaSocketId } from '../lib/api';
+import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
+    const { user } = useAuth();
     const [socket, setSocket] = useState(null);
     const [connected, setConnected] = useState(false);
     // Quante volte il socket si è riconnesso: chi mostra dati in tempo reale li ricarica.
@@ -17,11 +19,11 @@ export function SocketProvider({ children }) {
     const socketRef = useRef(null);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) return undefined;
+        // Ci si collega solo da autenticati; il cookie di sessione viaggia con la richiesta.
+        if (!user) return undefined;
 
         const newSocket = io(window.location.origin, {
-            auth: { token },
+            withCredentials: true,
             transports: ['websocket', 'polling'],
         });
 
@@ -51,8 +53,10 @@ export function SocketProvider({ children }) {
             impostaSocketId(null);
             socketRef.current = null;
             newSocket.close();
+            setSocket(null);
+            setConnected(false);
         };
-    }, []);
+    }, [user?.id]);
 
     const joinBoard = useCallback((boardId) => {
         boardCorrente.current = boardId;

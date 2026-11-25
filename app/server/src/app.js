@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 const helmet = require('helmet');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const config = require('./config/env');
+const { controllaOrigine, origineAmmessa } = require('./middleware/auth');
 const { setupSocketHandlers } = require('./socket/socketHandler');
 
 const authRoutes = require('./routes/auth');
@@ -34,7 +35,14 @@ const createApp = ({
     // stessa origine (produzione e proxy di Vite in sviluppo).
     const opzioniCors = corsOrigins.length > 0 ? { origin: corsOrigins, credentials: true } : null;
 
-    const io = new Server(server, opzioniCors ? { cors: opzioniCors } : {});
+    const io = new Server(server, {
+        ...(opzioniCors ? { cors: opzioniCors } : {}),
+        // Il cookie di sessione viaggia anche nel WebSocket: si accettano solo connessioni
+        // dal nostro sito (o da quelli dichiarati), non da pagine di terzi.
+        allowRequest: (req, callback) => {
+            callback(null, origineAmmessa(req.headers.origin, req.headers.host, corsOrigins));
+        },
+    });
     setupSocketHandlers(io);
 
     if (opzioniCors) {
@@ -57,6 +65,9 @@ const createApp = ({
             strictTransportSecurity: https,
         })
     );
+
+    // Le richieste che modificano dati devono partire dal nostro sito (protezione CSRF).
+    app.use('/api', controllaOrigine(corsOrigins));
 
     app.use(express.json({ limit: '100kb' }));
     app.use(express.urlencoded({ extended: true, limit: '100kb' }));

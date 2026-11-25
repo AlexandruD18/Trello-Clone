@@ -54,4 +54,12 @@ const inviaCard = async (req, boardId, cardId) => {
     if (card) notificaBoard(req, boardId, 'card:updated', { card });
 };
 
-module.exports = { impostaIo, notificaBoard, notificaCard, stanzaBoard };
+// Chiude tutti i socket aperti da un utente (dopo "esci da tutti i dispositivi").
+const chiudiSocketUtente = (userId) => {
+    if (!io) return;
+    for (const socket of io.of('/').sockets.values()) {
+        if (socket.userId === userId) socket.disconnect(true);
+    }
+};
+
+module.exports = { impostaIo, notificaBoard, notificaCard, stanzaBoard, chiudiSocketUtente };

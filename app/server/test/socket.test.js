@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createRequire } from 'node:module';
 import request from 'supertest';
 import { io as connetti } from 'socket.io-client';
-import { PASSWORD } from './helpers.js';
+import { PASSWORD, cookieSessione } from './helpers.js';
 
 const require = createRequire(import.meta.url);
 const { createApp } = require('../src/app');
@@ -18,13 +18,14 @@ const registra = async (nome) => {
     const res = await request(app)
         .post('/api/auth/register')
         .send({ email, password: PASSWORD, name: nome });
-    return { ...res.body, auth: { Authorization: `Bearer ${res.body.token}` } };
+    const token = cookieSessione(res);
+    return { ...res.body, token, auth: { Cookie: token } };
 };
 
 const apriSocket = (token) =>
     new Promise((resolve, reject) => {
         const socket = connetti(url, {
-            auth: { token },
+            extraHeaders: { Cookie: token },
             transports: ['websocket'],
             forceNew: true,
         });
@@ -86,7 +87,7 @@ describe('Socket.IO', () => {
     });
 
     it('rifiuta la connessione senza token valido', async () => {
-        await expect(apriSocket('token-falso')).rejects.toThrow();
+        await expect(apriSocket('sessione=token-falso')).rejects.toThrow();
     });
 
     it('non fa entrare nella stanza chi non ha accesso alla board', async () => {

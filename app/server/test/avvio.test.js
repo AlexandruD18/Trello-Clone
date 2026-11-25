@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { io as connetti } from 'socket.io-client';
 import request from 'supertest';
-import { PASSWORD } from './helpers.js';
+import { PASSWORD, cookieSessione } from './helpers.js';
 
 const portaLibera = () =>
     new Promise((resolve) => {
@@ -66,7 +66,7 @@ describe('avvio e chiusura del server', () => {
                     name: 'C',
                 });
             const socket = connetti(url, {
-                auth: { token: registrazione.body.token },
+                extraHeaders: { Cookie: cookieSessione(registrazione) },
                 transports: ['websocket'],
             });
             await new Promise((resolve, reject) => {
