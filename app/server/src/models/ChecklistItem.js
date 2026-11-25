@@ -24,7 +24,7 @@ const ChecklistItem = sequelize.define(
             field: 'is_completed',
         },
         position: {
-            type: DataTypes.FLOAT,
+            type: DataTypes.DOUBLE,
             allowNull: false,
             defaultValue: 0,
         },

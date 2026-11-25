@@ -1,4 +1,10 @@
-const { List, Card, User, Label } = require('../models');
+const { sequelize, Board, List, Card, User, Label } = require('../models');
+const {
+    posizionePerIndice,
+    bloccaContenitori,
+    transazioneConRiprova,
+    indiceValido,
+} = require('../services/posizioni');
 const { notificaBoard } = require('../socket/eventi');
 
 const createList = async (req, res) => {
@@ -9,17 +15,15 @@ const createList = async (req, res) => {
             return res.status(400).json({ error: 'Name and boardId are required' });
         }
 
-        const lastList = await List.findOne({
-            where: { boardId, isArchived: false },
-            order: [['position', 'DESC']],
-        });
-
-        const position = lastList ? lastList.position + 65536 : 65536;
-
-        const list = await List.create({
-            name,
-            boardId,
-            position,
+        const list = await transazioneConRiprova(sequelize, async (transaction) => {
+            await bloccaContenitori(Board, [boardId], transaction);
+            const { posizione } = await posizionePerIndice({
+                modello: List,
+                dove: { boardId, isArchived: false },
+                indice: Number.MAX_SAFE_INTEGER,
+                transaction,
+            });
+            return List.create({ name, boardId, position: posizione }, { transaction });
         });
 
         const fullList = await List.findByPk(list.id, {
@@ -41,6 +45,9 @@ const createList = async (req, res) => {
 
         res.status(201).json(fullList);
     } catch (error) {
+        if (error.status === 409) {
+            return res.status(409).json({ error: error.message });
+        }
         console.error('Create list error:', error);
         res.status(500).json({ error: 'Failed to create list' });
     }
@@ -69,27 +76,45 @@ const updateList = async (req, res) => {
 
 const moveList = async (req, res) => {
     try {
-        const { position } = req.body;
+        const { index } = req.body;
 
-        if (typeof position !== 'number' || !Number.isFinite(position)) {
-            return res.status(400).json({ error: 'Posizione non valida' });
+        if (!indiceValido(index)) {
+            return res.status(400).json({ error: 'Indice di destinazione non valido' });
         }
 
-        const list = await List.findByPk(req.params.id);
-
-        if (!list) {
+        const esito = await transazioneConRiprova(sequelize, async (transaction) => {
+            await bloccaContenitori(Board, [req.board.id], transaction);
+            const lista = await List.findByPk(req.params.id, { transaction });
+            if (!lista) return null;
+            const { posizione, rinumerati: rinum } = await posizionePerIndice({
+                modello: List,
+                dove: { boardId: lista.boardId, isArchived: false },
+                escludi: lista.id,
+                indice: index,
+                transaction,
+            });
+            await lista.update({ position: posizione }, { transaction });
+            return { list: lista, rinumerati: rinum };
+        });
+        if (!esito) {
             return res.status(404).json({ error: 'List not found' });
         }
+        const { list, rinumerati } = esito;
 
-        await list.update({ position });
+        if (rinumerati) {
+            notificaBoard(req, req.board.id, 'board:refresh');
+        } else {
+            notificaBoard(req, req.board.id, 'list:moved', {
+                listId: list.id,
+                position: list.position,
+            });
+        }
 
-        notificaBoard(req, req.board.id, 'list:moved', {
-            listId: list.id,
-            position: list.position,
-        });
-
-        res.json(list);
+        res.json({ ...list.toJSON(), rinumerati });
     } catch (error) {
+        if (error.status === 409) {
+            return res.status(409).json({ error: error.message });
+        }
         console.error('Move list error:', error);
         res.status(500).json({ error: 'Failed to move list' });
     }

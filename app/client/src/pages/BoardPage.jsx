@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     DndContext,
@@ -22,6 +22,9 @@ import List from '../components/List';
 import Card from '../components/Card';
 import CardModal from '../components/CardModal';
 import { ArrowLeft, Loader2, Plus, LogOut, User } from 'lucide-react';
+
+// Stesso ordine del server: per posizione e, a parità, per id.
+const perPosizione = (a, b) => a.position - b.position || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 function BoardPage() {
     const { boardId, cardId } = useParams();
@@ -79,8 +82,14 @@ function BoardPage() {
             },
             'list:moved': (data) => {
                 setLists((prev) =>
-                    prev.map((l) => (l.id === data.listId ? { ...l, position: data.position } : l))
+                    prev
+                        .map((l) => (l.id === data.listId ? { ...l, position: data.position } : l))
+                        .sort(perPosizione)
                 );
+            },
+            // Il server ha rinumerato le posizioni: si riparte dai dati salvati.
+            'board:refresh': () => {
+                loadBoard();
             },
             'list:deleted': (data) => {
                 setLists((prev) => prev.filter((l) => l.id !== data.listId));
@@ -119,7 +128,7 @@ function BoardPage() {
                             ];
                             return {
                                 ...l,
-                                cards: updatedCards.sort((a, b) => a.position - b.position),
+                                cards: updatedCards.sort(perPosizione),
                             };
                         }
                         return l;
@@ -154,12 +163,10 @@ function BoardPage() {
         try {
             const res = await api.get(`/boards/${boardId}`);
             setBoard(res.data);
-            const sortedLists = (res.data.lists || [])
-                .sort((a, b) => a.position - b.position)
-                .map((list) => ({
-                    ...list,
-                    cards: (list.cards || []).sort((a, b) => a.position - b.position),
-                }));
+            const sortedLists = (res.data.lists || []).sort(perPosizione).map((list) => ({
+                ...list,
+                cards: (list.cards || []).sort(perPosizione),
+            }));
             setLists(sortedLists);
         } catch (error) {
             console.error('Failed to load board:', error);
@@ -228,8 +235,8 @@ function BoardPage() {
     };
 
     const handleCardUpdate = (updatedCard) => {
-        setLists(
-            lists.map((l) => ({
+        setLists((prev) =>
+            prev.map((l) => ({
                 ...l,
                 cards: (l.cards || []).map((c) => (c.id === updatedCard.id ? updatedCard : c)),
             }))
@@ -259,14 +266,35 @@ function BoardPage() {
         return null;
     };
 
+    // Com'era la board all'inizio del trascinamento: serve per tornare indietro se
+    // l'utente annulla (Esc) o lascia la card fuori da ogni lista.
+    const inizioTrascinamento = useRef(null);
+
     const handleDragStart = (event) => {
         const { active } = event;
         const type = active.data.current?.type;
 
         if (type === 'card') {
             const result = findCard(active.id);
-            if (result) setActiveCard(result.card);
+            if (result) {
+                setActiveCard(result.card);
+                inizioTrascinamento.current = {
+                    lists,
+                    listId: result.list.id,
+                    index: (result.list.cards || []).findIndex((c) => c.id === active.id),
+                };
+            }
         }
+    };
+
+    const ripristinaTrascinamento = () => {
+        setActiveCard(null);
+        if (inizioTrascinamento.current) {
+            setLists(inizioTrascinamento.current.lists);
+            // Nel frattempo altri possono aver cambiato la board: si riparte dai dati salvati.
+            loadBoard();
+        }
+        inizioTrascinamento.current = null;
     };
 
     const handleDragOver = (event) => {
@@ -319,8 +347,16 @@ function BoardPage() {
         const { active, over } = event;
 
         setActiveCard(null);
+        const inizio = inizioTrascinamento.current;
+        inizioTrascinamento.current = null;
 
-        if (!over) return;
+        if (!over) {
+            if (inizio) {
+                setLists(inizio.lists);
+                loadBoard();
+            }
+            return;
+        }
 
         const activeType = active.data.current?.type;
         const overType = over.data.current?.type;
@@ -328,71 +364,58 @@ function BoardPage() {
         if (activeType === 'list' && overType === 'list') {
             const oldIndex = lists.findIndex((l) => l.id === active.id);
             const newIndex = lists.findIndex((l) => l.id === over.id);
+            if (oldIndex === newIndex) return;
 
-            if (oldIndex !== newIndex) {
-                const newLists = arrayMove(lists, oldIndex, newIndex);
-                const updatedLists = newLists.map((list, index) => ({
-                    ...list,
-                    position: (index + 1) * 65536,
-                }));
-                setLists(updatedLists);
-
-                try {
-                    await api.put(`/lists/${active.id}/move`, {
-                        position: updatedLists.find((l) => l.id === active.id).position,
-                    });
-                } catch (error) {
-                    console.error('Failed to move list:', error);
-                }
+            setLists(arrayMove(lists, oldIndex, newIndex));
+            try {
+                const res = await api.put(`/lists/${active.id}/move`, { index: newIndex });
+                if (res.data.rinumerati) loadBoard();
+                else
+                    setLists((prev) =>
+                        prev.map((l) =>
+                            l.id === active.id ? { ...l, position: res.data.position } : l
+                        )
+                    );
+            } catch (error) {
+                console.error('Failed to move list:', error);
+                loadBoard();
             }
         } else if (activeType === 'card') {
+            // Durante il trascinamento handleDragOver ha già messo la card nella lista
+            // di destinazione: qui resta solo l'ordine dentro quella lista.
             const result = findCard(active.id);
             if (!result) return;
 
-            let targetListId = result.list.id;
-            let targetIndex = (result.list.cards || []).findIndex((c) => c.id === active.id);
-
+            const cards = result.list.cards || [];
+            const oldIndex = cards.findIndex((c) => c.id === active.id);
+            let newIndex = oldIndex;
             if (overType === 'card') {
-                const overResult = findCard(over.id);
-                if (overResult) {
-                    targetListId = overResult.list.id;
-                    targetIndex = (overResult.list.cards || []).findIndex((c) => c.id === over.id);
-                }
-            } else if (overType === 'list') {
-                targetListId = over.id;
-                const targetList = lists.find((l) => l.id === targetListId);
-                targetIndex = (targetList?.cards || []).length;
+                const overIndex = cards.findIndex((c) => c.id === over.id);
+                if (overIndex !== -1) newIndex = overIndex;
             }
 
-            const targetList = lists.find((l) => l.id === targetListId);
-            const cards = targetList?.cards || [];
-
-            let newPosition;
-            if (cards.length === 0) {
-                newPosition = 65536;
-            } else if (targetIndex === 0) {
-                newPosition = cards[0].position / 2;
-            } else if (targetIndex >= cards.length) {
-                newPosition = cards[cards.length - 1].position + 65536;
-            } else {
-                const prevCard = cards.find(
-                    (c) => c.id !== active.id && cards.indexOf(c) === targetIndex - 1
+            const targetListId = result.list.id;
+            if (newIndex !== oldIndex) {
+                setLists((prev) =>
+                    prev.map((l) =>
+                        l.id === targetListId
+                            ? { ...l, cards: arrayMove(l.cards || [], oldIndex, newIndex) }
+                            : l
+                    )
                 );
-                const nextCard = cards.find(
-                    (c) => c.id !== active.id && cards.indexOf(c) === targetIndex
-                );
-                if (prevCard && nextCard) {
-                    newPosition = (prevCard.position + nextCard.position) / 2;
-                } else {
-                    newPosition = (targetIndex + 1) * 65536;
-                }
             }
+
+            // Tornata dov'era: niente da salvare.
+            if (inizio && inizio.listId === targetListId && inizio.index === newIndex) return;
 
             try {
-                await api.put(`/cards/${active.id}/move`, {
+                const res = await api.put(`/cards/${active.id}/move`, {
                     listId: targetListId,
-                    position: newPosition,
+                    index: newIndex,
                 });
+                const { rinumerati, ...salvata } = res.data;
+                if (rinumerati) loadBoard();
+                else handleCardUpdate({ ...result.card, ...salvata });
             } catch (error) {
                 console.error('Failed to move card:', error);
                 loadBoard();
@@ -465,6 +488,7 @@ function BoardPage() {
                     onDragStart={handleDragStart}
                     onDragOver={handleDragOver}
                     onDragEnd={handleDragEnd}
+                    onDragCancel={ripristinaTrascinamento}
                 >
                     <SortableContext
                         items={lists.map((l) => l.id)}

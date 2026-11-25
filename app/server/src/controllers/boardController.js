@@ -2,6 +2,7 @@ const { Board, BoardMember, List, Label, User, WorkspaceMember } = require('../m
 const { Op } = require('sequelize');
 const { riepiloghiCard } = require('../services/riepilogoCard');
 const { isUuid } = require('../middleware/permessi');
+const { notificaBoard } = require('../socket/eventi');
 
 const getBoards = async (req, res) => {
     try {
@@ -15,8 +16,9 @@ const getBoards = async (req, res) => {
             BoardMember.findAll({ where: { userId: req.userId }, attributes: ['boardId'] }),
             WorkspaceMember.findAll({ where: { userId: req.userId }, attributes: ['workspaceId'] }),
         ]);
+        // ?archiviate=true elenca le board archiviate (per ripristinarle).
         const where = {
-            isArchived: false,
+            isArchived: req.query.archiviate === 'true',
             [Op.or]: [
                 { id: inviti.map((m) => m.boardId) },
                 { workspaceId: iscrizioni.map((m) => m.workspaceId) },
@@ -163,6 +165,8 @@ const deleteBoard = async (req, res) => {
         }
 
         await board.update({ isArchived: true });
+        // Chi ha la board aperta la ricarica e la vede in sola lettura.
+        notificaBoard(req, board.id, 'board:refresh');
 
         res.json({ message: 'Board archived' });
     } catch (error) {
@@ -171,4 +175,15 @@ const deleteBoard = async (req, res) => {
     }
 };
 
-module.exports = { getBoards, getBoard, createBoard, updateBoard, deleteBoard };
+const restoreBoard = async (req, res) => {
+    try {
+        await req.board.update({ isArchived: false });
+        notificaBoard(req, req.board.id, 'board:refresh');
+        res.json(req.board);
+    } catch (error) {
+        console.error('Restore board error:', error);
+        res.status(500).json({ error: 'Ripristino della board non riuscito' });
+    }
+};
+
+module.exports = { getBoards, getBoard, createBoard, updateBoard, deleteBoard, restoreBoard };
