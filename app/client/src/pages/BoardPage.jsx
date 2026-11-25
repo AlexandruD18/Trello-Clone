@@ -285,7 +285,11 @@ function BoardPage() {
 
     const ripristinaTrascinamento = () => {
         setActiveCard(null);
-        if (inizioTrascinamento.current) setLists(inizioTrascinamento.current.lists);
+        if (inizioTrascinamento.current) {
+            setLists(inizioTrascinamento.current.lists);
+            // Nel frattempo altri possono aver cambiato la board: si riparte dai dati salvati.
+            loadBoard();
+        }
         inizioTrascinamento.current = null;
     };
 
@@ -343,7 +347,10 @@ function BoardPage() {
         inizioTrascinamento.current = null;
 
         if (!over) {
-            if (inizio) setLists(inizio.lists);
+            if (inizio) {
+                setLists(inizio.lists);
+                loadBoard();
+            }
             return;
         }
 

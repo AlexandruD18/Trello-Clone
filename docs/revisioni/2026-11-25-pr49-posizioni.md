@@ -115,3 +115,48 @@ Il README delle migrazioni chiede una modifica per migrazione, perché ogni `ALT
 ## Esito: da correggere
 
 Il punto 1 blocca il merge. I punti 2 e 3 vanno sistemati in questa PR o in una issue subito dopo. Gli altri sono facoltativi.
+
+## Seconda verifica (25/11/2026)
+
+Ho controllato il commit `1e7da84` ("fix: niente deadlock negli spostamenti contemporanei e creazioni in transazione"), che arriva dopo il merge di main `19a3b7f`.
+
+### Prove rifatte
+
+- `DB_NAME=trello_test_rev npm test`: 8 file, 62 test passati, 1 saltato.
+- `sonda.cjs`, lanciato due volte con gli stessi scenari della prima verifica:
+
+| Scenario | Prima | Adesso |
+|---|---|---|
+| 4 card spostate insieme in una lista vuota (5 giri) | 3 risposte 500 su 4 | tutte 200; posizioni −131072, −65536, 0, 65536, senza doppioni |
+| Spostamenti incrociati A→B e B→A (8 giri) | 2-3 risposte 500 su 4 | tutte 200 |
+| 1 spostamento in fondo e 2 creazioni insieme | due card a 131072 | 131072, 196608, 262144 |
+| 4 liste spostate insieme in cima | tutte 200 | tutte 200, nessun doppione |
+| `ER_LOCK_DEADLOCK` nel log del server | 34 | 0 |
+
+- Nuovo script `sonda2.cjs`, 6 giri. In ogni giro partono insieme: la stessa card spostata due volte verso L2, una card spostata da L2 a L1, le due liste riordinate e due creazioni. Nessuna risposta 500 e nessun deadlock. Tre volte il secondo spostamento della stessa card ha ricevuto 409 ("La card è stata spostata nel frattempo: riprova"): è il comportamento previsto, e il client ricarica la board.
+- Spostare una card in una lista archiviata risponde 400 "La lista di destinazione è archiviata".
+
+### Stato dei punti
+
+| # | Punto | Stato |
+|---|---|---|
+| 1 | Deadlock tra liste | **Risolto.** `bloccaContenitori` blocca liste o board in ordine di id, la card viene riletta con il lock e `transazioneConRiprova` rifà la transazione fino a 3 volte, poi risponde 409. Ho controllato l'ordine dei lock: `moveList` e `createList` partono dalla board, `moveCard` dalle due liste, `createCard` dalla lista. Nessuno prende la board dopo una lista, quindi non si formano cicli. |
+| 2 | Creazioni e pareggi | **Risolto.** Le creazioni passano da `posizionePerIndice` nella transazione. Il client ordina per posizione e poi per id (`perPosizione`), come il server. |
+| 3 | Trascinamento annullato | **Risolto.** C'è `onDragCancel`, e se `over` è nullo il client ripristina la board com'era all'inizio del trascinamento. |
+| 4 | Richiesta inutile | **Risolto.** |
+| 5 | Indice su vista vecchia | Non toccato: era facoltativo. |
+| 6 | Rinumerazione riga per riga | Non toccato: era facoltativo. |
+| 7 | `moveList` con lista sparita | **Risolto:** ora risponde 404. |
+| 8 | `rinumerati` nello stato | **Risolto.** |
+| 9 | Commento nella 0002 | **Risolto.** |
+
+### Osservazioni nuove (tutti suggerimenti, nessuno blocca)
+
+1. **Riprova anche su `ER_LOCK_WAIT_TIMEOUT`** (`app/server/src/services/posizioni.js`, `ERRORI_RIPETIBILI`). L'attesa di default di InnoDB è di 50 secondi: in un caso estremo una richiesta può restare appesa per più di 2 minuti prima del 409. Conviene riprovare solo su deadlock, oppure abbassare l'attesa per queste transazioni (`SET SESSION innodb_lock_wait_timeout = 5`).
+2. **`createCard` accetta ancora una lista archiviata** (`app/server/src/controllers/cardController.js:63-77`). `moveCard` invece adesso la rifiuta. `bloccaContenitori` restituisce già la lista: basta controllare `isArchived` e rispondere 400, come nello spostamento.
+3. **Il ripristino usa una copia di `lists` presa all'inizio del trascinamento** (`BoardPage.jsx`, `inizioTrascinamento`). Se durante il trascinamento arriva un evento socket da un altro utente e poi l'utente annulla, quella modifica sparisce dalla vista finché la board non si ricarica. Si può chiamare `loadBoard()` dopo il ripristino, oppure solo quando nel frattempo è arrivato un evento.
+4. **Card spostata due volte in parallelo.** Se la stessa card viene spostata due volte nello stesso istante, la seconda richiesta risponde 409 invece di essere rifatta. Il risultato è corretto e il client si riallinea. Volendo, si può ripetere la transazione anche in questo caso, perché la seconda richiesta dice comunque dove deve finire la card.
+
+### Esito: approvata
+
+Il punto bloccante e i due punti da correggere sono risolti, e li ho verificati con prove in parallelo sul database vero. Le osservazioni nuove si possono fare in seguito, anche in una issue a parte.

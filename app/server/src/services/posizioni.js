@@ -69,7 +69,9 @@ const bloccaContenitori = async (modello, ids, transaction) => {
     });
 };
 
-const ERRORI_RIPETIBILI = new Set(['ER_LOCK_DEADLOCK', 'ER_LOCK_WAIT_TIMEOUT']);
+// Solo i deadlock: MySQL li rileva subito. Un lock wait timeout arriva dopo 50 s
+// e ripeterlo terrebbe la richiesta appesa per minuti.
+const ERRORI_RIPETIBILI = new Set(['ER_LOCK_DEADLOCK']);
 const ripetibile = (errore) =>
     ERRORI_RIPETIBILI.has(errore?.parent?.code || errore?.original?.code || errore?.code);
 
