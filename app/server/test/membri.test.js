@@ -117,6 +117,111 @@ describe('membri della board', () => {
         );
     });
 
+    it('un join-board in corso durante la rimozione non resta nella stanza', async () => {
+        const board = await creaBoard(anna);
+        const lista = (
+            await request(app)
+                .post('/api/lists')
+                .set(anna.auth)
+                .send({ name: 'L', boardId: board.id })
+        ).body;
+        for (let giro = 0; giro < 5; giro += 1) {
+            const dario = await registra('Dario');
+            await invita(anna, board, dario.email, 'member');
+            const socket = connetti(url, {
+                auth: { token: dario.token },
+                transports: ['websocket'],
+            });
+            socketAperti.push(socket);
+            await new Promise((resolve) => socket.once('connect', resolve));
+
+            // join e rimozione partono insieme.
+            const join = new Promise((resolve) => socket.emit('join-board', board.id, resolve));
+            await request(app)
+                .delete(`/api/boards/${board.id}/members/${dario.user.id}`)
+                .set(anna.auth);
+            await join;
+
+            let ricevuto = false;
+            socket.on('card:created', () => {
+                ricevuto = true;
+            });
+            await request(app)
+                .post('/api/cards')
+                .set(anna.auth)
+                .send({ title: `Dopo ${giro}`, listId: lista.id });
+            await new Promise((r) => setTimeout(r, 300));
+            expect(ricevuto).toBe(false);
+            socket.close();
+        }
+    });
+
+    it('due admin che si tolgono insieme: uno resta, nessun errore 500', async () => {
+        const board = await creaBoard(anna);
+        const secondo = await registra('Secondo');
+        await invita(anna, board, secondo.email, 'admin');
+
+        const [a, b] = await Promise.all([
+            request(app).delete(`/api/boards/${board.id}/members/${anna.user.id}`).set(anna.auth),
+            request(app)
+                .delete(`/api/boards/${board.id}/members/${secondo.user.id}`)
+                .set(secondo.auth),
+        ]);
+        expect([a.status, b.status].sort()).toEqual([200, 409]);
+    });
+
+    it('le email dei membri non escono da board, card e commenti', async () => {
+        const board = await creaBoard(anna);
+        const eva = await registra('Eva');
+        await invita(anna, board, eva.email, 'viewer');
+        const lista = (
+            await request(app)
+                .post('/api/lists')
+                .set(anna.auth)
+                .send({ name: 'L', boardId: board.id })
+        ).body;
+        const card = (
+            await request(app)
+                .post('/api/cards')
+                .set(anna.auth)
+                .send({ title: 'C', listId: lista.id })
+        ).body;
+        await request(app)
+            .post(`/api/cards/${card.id}/members`)
+            .set(anna.auth)
+            .send({ userId: anna.user.id });
+        await request(app)
+            .post('/api/comments')
+            .set(anna.auth)
+            .send({ text: 'x', cardId: card.id });
+
+        const risposte = await Promise.all([
+            request(app).get('/api/boards').set(eva.auth),
+            request(app).get(`/api/boards/${board.id}`).set(eva.auth),
+            request(app).get(`/api/cards/${card.id}`).set(eva.auth),
+            request(app).get(`/api/comments?cardId=${card.id}`).set(eva.auth),
+        ]);
+        for (const r of risposte) {
+            expect(r.status).toBe(200);
+            expect(JSON.stringify(r.body)).not.toContain(anna.email);
+        }
+        const profilo = await request(app).get('/api/auth/me').set(eva.auth);
+        expect(profilo.body.user.email).toBe(eva.email);
+    });
+
+    it("su una board archiviata l'admin può ancora togliere persone", async () => {
+        const board = await creaBoard(anna);
+        const fabio = await registra('Fabio');
+        await invita(anna, board, fabio.email, 'member');
+        await request(app).delete(`/api/boards/${board.id}`).set(anna.auth);
+
+        expect((await invita(anna, board, 'altro@esempio.it', 'member')).status).toBe(403);
+        const togli = await request(app)
+            .delete(`/api/boards/${board.id}/members/${fabio.user.id}`)
+            .set(anna.auth);
+        expect(togli.status).toBe(200);
+    });
+
     it('chi viene tolto perde le card assegnate ed esce subito dal tempo reale', async () => {
         const board = await creaBoard(anna);
         const carla = await registra('Carla');

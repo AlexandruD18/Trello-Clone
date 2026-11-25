@@ -69,8 +69,12 @@ function BoardPage() {
 
         const handlers = {
             // Un admin ci ha tolto dalla board: non c'è più niente da mostrare qui.
+            // Il filtro più sotto lascia passare solo gli eventi di questa board.
             'board:accesso-revocato': () => {
-                navigate('/', { replace: true });
+                navigate('/', {
+                    replace: true,
+                    state: { avviso: 'Non fai più parte di questa board.' },
+                });
             },
             'list:created': (data) => {
                 setLists((prev) => [...prev, { ...data.list, cards: [] }]);

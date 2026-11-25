@@ -84,7 +84,14 @@ const login = async (req, res) => {
 };
 
 const me = async (req, res) => {
-    res.json({ user: req.user.toJSON() });
+    try {
+        // L'email è esclusa dallo scope di default: per il proprio profilo si rilegge.
+        const profilo = await User.scope('profilo').findByPk(req.userId);
+        res.json({ user: profilo.toJSON() });
+    } catch (error) {
+        console.error('Me error:', error);
+        res.status(500).json({ error: 'Profilo non disponibile' });
+    }
 };
 
 module.exports = { register, login, me };

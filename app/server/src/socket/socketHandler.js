@@ -54,11 +54,14 @@ const setupSocketHandlers = (io) => {
     // Chi non ha più accesso a una board esce subito dalla sua stanza.
     impostaControlloAccesso(async (board, userId) => {
         const stanza = stanzaBoard(board.id);
-        const coinvolti = [...io.of('/').sockets.values()].filter(
-            (s) => s.userId === userId && s.rooms.has(stanza)
-        );
-        if (coinvolti.length === 0) return;
         if (await ruoloBoard(userId, board)) return;
+        // Anche i socket con un join-board in corso: il controllo del ruolo che stanno
+        // facendo può essere partito prima della rimozione. Azzerando boardRichiesta,
+        // quel join risponde "Richiesta superata" e non entra nella stanza.
+        const coinvolti = [...io.of('/').sockets.values()].filter(
+            (s) =>
+                s.userId === userId && (s.rooms.has(stanza) || s.data.boardRichiesta === board.id)
+        );
         for (const s of coinvolti) {
             esci(s, board.id);
             if (s.data.boardRichiesta === board.id) s.data.boardRichiesta = null;

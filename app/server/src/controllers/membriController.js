@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
-const { sequelize, User, BoardMember, CardMember, Card, List } = require('../models');
+const { sequelize, Board, User, BoardMember, CardMember, Card, List } = require('../models');
 const { normalizzaEmail } = require('../validation/auth');
-const { isUuid } = require('../middleware/permessi');
+const { isUuid, ruoloWorkspace } = require('../middleware/permessi');
 const { notificaBoard, verificaAccessoSocket } = require('../socket/eventi');
 
 const RUOLI = ['admin', 'member', 'viewer'];
@@ -81,6 +81,8 @@ const updateBoardMember = async (req, res) => {
         if (!RUOLI.includes(role)) return res.status(400).json({ error: 'Ruolo non valido' });
 
         const esito = await sequelize.transaction(async (transaction) => {
+            // Prima la board: due admin che si tolgono o declassano insieme si mettono in fila.
+            await Board.findByPk(req.board.id, { lock: transaction.LOCK.UPDATE, transaction });
             const membro = await BoardMember.findOne({
                 where: { boardId: req.board.id, userId },
                 lock: transaction.LOCK.UPDATE,
@@ -98,7 +100,9 @@ const updateBoardMember = async (req, res) => {
         const user = await User.findByPk(userId, { attributes: PUBBLICO });
         await verificaAccessoSocket(req.board, userId);
         notificaBoard(req, req.board.id, 'board:refresh');
-        res.json(membroPubblico(user, esito.membro.role));
+        res.json(
+            user ? membroPubblico(user, esito.membro.role) : { id: userId, role: esito.membro.role }
+        );
     } catch (error) {
         console.error('Update board member error:', error);
         res.status(500).json({ error: 'Modifica del ruolo non riuscita' });
@@ -106,6 +110,8 @@ const updateBoardMember = async (req, res) => {
 };
 
 // Un admin toglie chiunque; ognuno può togliere sé stesso (lasciare la board).
+// Funziona anche sulle board archiviate: togliere l'accesso è una misura di sicurezza,
+// non una modifica dei contenuti (invitare e cambiare ruolo, invece, sono bloccati).
 const removeBoardMember = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -115,6 +121,8 @@ const removeBoardMember = async (req, res) => {
         }
 
         const esito = await sequelize.transaction(async (transaction) => {
+            // Prima la board: due admin che si tolgono o declassano insieme si mettono in fila.
+            await Board.findByPk(req.board.id, { lock: transaction.LOCK.UPDATE, transaction });
             const membro = await BoardMember.findOne({
                 where: { boardId: req.board.id, userId },
                 lock: transaction.LOCK.UPDATE,
@@ -125,7 +133,10 @@ const removeBoardMember = async (req, res) => {
                 return { stato: 409, errore: 'La board deve avere almeno un admin' };
             }
             await membro.destroy({ transaction });
-            await togliDalleCard(req.board.id, userId, transaction);
+            // Se vede ancora la board dal workspace, le sue card restano assegnate.
+            if (!(await ruoloWorkspace(userId, req.board.workspaceId))) {
+                await togliDalleCard(req.board.id, userId, transaction);
+            }
             return {};
         });
         if (esito.errore) return res.status(esito.stato).json({ error: esito.errore });
